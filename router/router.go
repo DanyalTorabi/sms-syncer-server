@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"sms-sync-server/internal/db"
+	"sms-sync-server/pkg/logger"
 
 	"github.com/gin-gonic/gin"
 )
@@ -69,6 +70,7 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) handleHealth(c *gin.Context) {
+	logger.Info("Health check endpoint called")
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
@@ -105,6 +107,7 @@ func (r *Router) validateMessage(msg *db.SMSMessage) error {
 }
 
 func (r *Router) handleAddMessage(c *gin.Context) {
+	logger.Info("SMS add message endpoint called")
 	// Check content type
 	if c.ContentType() != "application/json" {
 		c.JSON(http.StatusUnsupportedMediaType, gin.H{"error": "Unsupported Media Type"})
@@ -132,6 +135,7 @@ func (r *Router) handleAddMessage(c *gin.Context) {
 }
 
 func (r *Router) handleGetMessages(c *gin.Context) {
+	logger.Info("SMS get messages endpoint called")
 	userID := c.Query("user_id")
 	if userID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "User ID is required"})

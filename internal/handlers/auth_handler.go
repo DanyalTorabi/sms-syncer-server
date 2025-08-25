@@ -28,6 +28,7 @@ func NewAuthHandler(cfg *config.Config) *AuthHandler {
 
 // Login handles user authentication and returns a JWT token
 func (h *AuthHandler) Login(c *gin.Context) {
+	logger.Info("Auth login endpoint called")
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error("Failed to parse login request")

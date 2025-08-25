@@ -1,0 +1,27 @@
+{"level":"info","timestamp":"2025-08-24T23:01:50.449-0300","msg":"Starting server","addr":":8080"}
+{"level":"info","timestamp":"2025-08-24T23:05:20.974-0300","msg":"Shutting down server..."}
+{"level":"info","timestamp":"2025-08-24T23:05:20.975-0300","msg":"Server shutting down"}
+error":"listen tcp :8080: bind: address already in use"}
+{"level":"info","timestamp":"2025-08-24T23:03:40.286-0300","msg":"Starting server","addr":":8080"}
+{"level":"fatal","timestamp":"2025-08-24T23:03:40.287-0300","msg":"Server error","error":"listen tcp :8080: bind: address already in use"}
+{"level":"info","timestamp":"2025-08-24T23:04:30.128-0300","msg":"Starting server","addr":":8080"}
+{"level":"fatal","timestamp":"2025-08-24T23:04:30.128-0300","msg":"Server error","error":"listen tcp :8080: bind: address already in use"}
+{"level":"info","timestamp":"2025-08-24T23:05:29.176-0300","msg":"Starting server","addr":":8080"}
+{"level":"info","timestamp":"2025-08-24T23:13:06.543-0300","msg":"Shutting down server..."}
+{"level":"info","timestamp":"2025-08-24T23:13:06.543-0300","msg":"Server shutting down"}
+{"level":"info","timestamp":"2025-08-24T23:13:25.046-0300","msg":"Starting server","addr":":8080"}
+{"level":"info","timestamp":"2025-08-24T23:13:35.358-0300","msg":"Health check endpoint called"}
+{"level":"info","timestamp":"2025-08-24T23:14:04.607-0300","msg":"Starting server","addr":":8080"}
+{"level":"fatal","timestamp":"2025-08-24T23:14:04.608-0300","msg":"Server error","error":"listen tcp :8080: bind: address already in use"}
+{"level":"info","timestamp":"2025-08-24T23:14:34.239-0300","msg":"Starting server","addr":":8080"}
+{"level":"fatal","timestamp":"2025-08-24T23:14:34.240-0300","msg":"Server error","error":"listen tcp :8080: bind: address already in use"}
+{"level":"info","timestamp":"2025-08-24T23:14:59.283-0300","msg":"Starting server","addr":":8080"}
+{"level":"fatal","timestamp":"2025-08-24T23:14:59.283-0300","msg":"Server error","error":"listen tcp :8080: bind: address already in use"}
+{"level":"info","timestamp":"2025-08-24T23:15:34.942-0300","msg":"Health check endpoint called"}
+{"level":"info","timestamp":"2025-08-24T23:16:11.378-0300","msg":"Shutting down server..."}
+{"level":"info","timestamp":"2025-08-24T23:16:11.378-0300","msg":"Server shutting down"}
+{"level":"info","timestamp":"2025-08-24T23:16:50.409-0300","msg":"Starting server","addr":":8080"}
+{"level":"info","timestamp":"2025-08-24T23:17:00.921-0300","msg":"Shutting down server..."}
+{"level":"info","timestamp":"2025-08-24T23:17:00.921-0300","msg":"Server shutting down"}
+{"level":"info","timestamp":"2025-08-24T23:17:05.667-0300","msg":"Starting server","addr":":8080"}
+{"level":"info","timestamp":"2025-08-24T23:17:09.569-0300","msg":"Health check endpoint called"}
