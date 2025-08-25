@@ -19,12 +19,12 @@ deps:
 .PHONY: build
 build:
 	mkdir -p build
-	go build -o build/sms-sync-server
+	go build -o build/sms-sync-server ./cmd/server
 
 # Run the server
 .PHONY: run
 run:
-	go run .
+	go run ./cmd/server
 
 # Clean build artifacts
 .PHONY: clean
