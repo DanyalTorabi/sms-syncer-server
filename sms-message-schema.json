@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SMS Message",
+  "description": "Schema for adding SMS messages to the SMS Sync Server",
+  "type": "object",
+  "properties": {
+    "smsId": {
+      "type": ["integer", "null"],
+      "description": "Original SMS ID from Android system"
+    },
+    "smsTimestamp": {
+      "type": "integer",
+      "description": "Unix timestamp (seconds) when SMS was sent/received",
+      "minimum": 0
+    },
+    "eventTimestamp": {
+      "type": ["integer", "null"],
+      "description": "Unix timestamp when sync event occurred (auto-populated if omitted)",
+      "minimum": 0
+    },
+    "phoneNumber": {
+      "type": "string",
+      "description": "Phone number (sender/recipient)",
+      "minLength": 1
+    },
+    "body": {
+      "type": "string",
+      "description": "SMS message content",
+      "minLength": 1
+    },
+    "eventType": {
+      "type": "string",
+      "description": "Type of SMS event",
+      "enum": ["SENT", "RECEIVED", "DRAFT", "FAILED", "QUEUED"]
+    },
+    "threadId": {
+      "type": ["integer", "null"],
+      "description": "SMS conversation/thread identifier"
+    },
+    "dateSent": {
+      "type": ["integer", "null"],
+      "description": "Unix timestamp when message was actually sent",
+      "minimum": 0
+    },
+    "person": {
+      "type": ["string", "null"],
+      "description": "Contact name or identifier"
+    }
+  },
+  "required": ["smsTimestamp", "phoneNumber", "body", "eventType"],
+  "additionalProperties": false,
+  "examples": [
+    {
+      "smsTimestamp": 1692864000,
+      "phoneNumber": "+1234567890",
+      "body": "Hello world!",
+      "eventType": "RECEIVED"
+    },
+    {
+      "smsId": 12345,
+      "smsTimestamp": 1692864000,
+      "eventTimestamp": 1692864010,
+      "phoneNumber": "+1234567890",
+      "body": "Complete SMS message with all fields",
+      "eventType": "SENT",
+      "threadId": 67890,
+      "dateSent": 1692863990,
+      "person": "John Doe"
+    }
+  ]
+}

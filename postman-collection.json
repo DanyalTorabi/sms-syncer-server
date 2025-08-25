@@ -1,0 +1,174 @@
+{
+  "info": {
+    "name": "SMS Sync Server API",
+    "description": "Collection for testing SMS Sync Server endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{jwt_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "jwt_token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Basic {{basic_auth}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.globals.set('jwt_token', response.token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "SMS Operations",
+      "item": [
+        {
+          "name": "Add SMS - Minimal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"smsTimestamp\": {{$timestamp}},\n  \"phoneNumber\": \"+1234567890\",\n  \"body\": \"Hello world!\",\n  \"eventType\": \"RECEIVED\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/sms/add",
+              "host": ["{{base_url}}"],
+              "path": ["api", "sms", "add"]
+            }
+          }
+        },
+        {
+          "name": "Add SMS - Complete",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"smsId\": 12345,\n  \"smsTimestamp\": {{$timestamp}},\n  \"eventTimestamp\": {{$timestamp}},\n  \"phoneNumber\": \"+1234567890\",\n  \"body\": \"Complete SMS message with all fields\",\n  \"eventType\": \"SENT\",\n  \"threadId\": 67890,\n  \"dateSent\": {{$timestamp}},\n  \"person\": \"John Doe\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/sms/add",
+              "host": ["{{base_url}}"],
+              "path": ["api", "sms", "add"]
+            }
+          }
+        },
+        {
+          "name": "Add SMS - Validation Error",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phoneNumber\": \"+1234567890\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/sms/add",
+              "host": ["{{base_url}}"],
+              "path": ["api", "sms", "add"]
+            }
+          }
+        },
+        {
+          "name": "Get SMS Messages",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/sms/get?user_id=test-user&limit=10&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["api", "sms", "get"],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "test-user"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/health",
+          "host": ["{{base_url}}"],
+          "path": ["health"]
+        }
+      }
+    }
+  ]
+}

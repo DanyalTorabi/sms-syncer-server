@@ -1,0 +1,22 @@
+# Binaries
+sms-sync-server
+server
+
+# Test databases
+*.db
+test.db
+
+# Go build cache
+go.sum.backup
+
+# Coverage files
+coverage.out
+coverage.html
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
