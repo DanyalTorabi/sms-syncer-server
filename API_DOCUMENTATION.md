@@ -22,7 +22,12 @@ Authorization: Bearer <your-jwt-token>
 To get a token, use the login endpoint:
 ```http
 POST /api/auth/login
-Authorization: Basic <base64(username:password)>
+Content-Type: application/json
+
+{
+  "username": "testuser",
+  "password": "testpass"
+}
 ```
 
 ### Request Schema
@@ -142,7 +147,8 @@ Authorization: Basic <base64(username:password)>
 ```bash
 # Get authentication token first
 TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
-  -H "Authorization: Basic $(echo -n 'username:password' | base64)" \
+  -H "Content-Type: application/json" \
+  -d '{"username":"testuser","password":"testpass"}' \
   | jq -r '.token')
 
 # Add SMS message
