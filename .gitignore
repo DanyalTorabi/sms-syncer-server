@@ -13,6 +13,10 @@ go.sum.backup
 coverage.out
 coverage.html
 
+# Log files
+server.log
+*.log
+
 # IDE files
 .vscode/
 .idea/

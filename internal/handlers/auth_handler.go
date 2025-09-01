@@ -61,6 +61,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			return
 		}
 
+		// logger.Info("JWT token generated successfully for user: " + req.Username + ", token: " + tokenString)
 		c.JSON(http.StatusOK, gin.H{"token": tokenString})
 		return
 	}
