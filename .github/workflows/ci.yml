@@ -94,7 +94,7 @@ jobs:
     - name: Run security scan
       run: |
         echo "Installing gosec..."
-        go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+        go install github.com/securecodewarrior/gosec/cmd/gosec@latest
         echo "Running gosec security scan..."
         gosec -no-fail -quiet ./... || echo "Security scan completed with warnings"
         echo "Security scan completed successfully"
