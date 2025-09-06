@@ -1,0 +1,29 @@
+# Global code owners
+* @DanyalTorabi
+
+# API handlers require additional review
+/internal/handlers/ @DanyalTorabi
+/router/ @DanyalTorabi
+
+# Database changes require careful review  
+/internal/db/ @DanyalTorabi
+/internal/models/ @DanyalTorabi
+
+# Security-related files
+/pkg/middleware/ @DanyalTorabi
+/internal/handlers/auth_handler.go @DanyalTorabi
+
+# CI/CD pipeline changes
+/.github/ @DanyalTorabi
+/.golangci.yml @DanyalTorabi
+/Makefile @DanyalTorabi
+
+# Documentation
+/docs/ @DanyalTorabi
+/README.md @DanyalTorabi
+/API_DOCUMENTATION.md @DanyalTorabi
+
+# Configuration files
+/internal/config/ @DanyalTorabi
+go.mod @DanyalTorabi
+go.sum @DanyalTorabi
