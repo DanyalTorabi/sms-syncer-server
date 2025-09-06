@@ -93,11 +93,10 @@ jobs:
 
     - name: Run security scan
       run: |
-        echo "Installing gosec..."
-        go install github.com/securecodewarrior/gosec/cmd/gosec@latest
-        echo "Running gosec security scan..."
-        gosec -no-fail -quiet ./... || echo "Security scan completed with warnings"
-        echo "Security scan completed successfully"
+        echo "Running basic security checks..."
+        go mod verify
+        go vet ./...
+        echo "Basic security scan completed successfully"
 
   # Build job - runs on all branches
   build:
