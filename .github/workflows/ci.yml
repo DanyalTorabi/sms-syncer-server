@@ -16,7 +16,6 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    if: false  # DISABLED
     strategy:
       matrix:
         go-version: ['1.21', '1.22']
@@ -59,7 +58,6 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
-    if: false  # DISABLED
     
     steps:
     - name: Checkout code
@@ -116,7 +114,6 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    if: false  # DISABLED
     needs: [test, lint]
     
     steps:
@@ -144,7 +141,6 @@ jobs:
   integration:
     name: Integration Tests
     runs-on: ubuntu-latest
-    if: false  # DISABLED
     needs: [build]
     
     steps:
