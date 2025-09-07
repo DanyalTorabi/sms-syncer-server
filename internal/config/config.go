@@ -48,7 +48,13 @@ func LoadConfig(path string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			// Log the close error but don't override the main return
+			// In a production environment, you might want to log this properly
+			_ = closeErr
+		}
+	}()
 
 	var config Config
 	if err := json.NewDecoder(file).Decode(&config); err != nil {

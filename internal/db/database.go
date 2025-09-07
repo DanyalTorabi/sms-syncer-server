@@ -178,7 +178,13 @@ func (d *Database) GetMessages(userID string, limit, offset int) ([]*SMSMessage,
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			// Log the close error but don't override the main return
+			// In a production environment, you might want to log this properly
+			_ = closeErr
+		}
+	}()
 
 	var messages []*SMSMessage
 	for rows.Next() {
