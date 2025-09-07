@@ -134,6 +134,7 @@ jobs:
 
     - name: Build application
       run: |
+        sleep 2
         echo "=== Current working directory ==="
         pwd
         echo "=== Directory listing ==="
