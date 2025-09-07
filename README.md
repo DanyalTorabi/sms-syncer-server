@@ -103,6 +103,58 @@ make lint
 make build
 ```
 
+## 📦 Installation & Releases
+
+### Download Pre-built Binaries
+
+Download the latest release from [GitHub Releases](https://github.com/DanyalTorabi/sms-syncer-server/releases):
+
+```bash
+# Linux (x64)
+curl -L -o sms-sync-server https://github.com/DanyalTorabi/sms-syncer-server/releases/latest/download/sms-sync-server-linux-amd64
+chmod +x sms-sync-server
+./sms-sync-server
+
+# macOS (Apple Silicon)
+curl -L -o sms-sync-server https://github.com/DanyalTorabi/sms-syncer-server/releases/latest/download/sms-sync-server-darwin-arm64
+chmod +x sms-sync-server
+./sms-sync-server
+
+# Check version
+./sms-sync-server -version
+```
+
+### Docker
+
+```bash
+# Pull and run latest release
+docker pull ghcr.io/danyaltorabi/sms-syncer-server:latest
+docker run -p 8080:8080 ghcr.io/danyaltorabi/sms-syncer-server:latest
+
+# Or use docker-compose
+cat > docker-compose.yml << EOF
+version: '3.8'
+services:
+  sms-server:
+    image: ghcr.io/danyaltorabi/sms-syncer-server:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+EOF
+
+docker-compose up
+```
+
+### Build from Source
+
+```bash
+git clone https://github.com/DanyalTorabi/sms-syncer-server.git
+cd sms-syncer-server
+make build
+./build/sms-sync-server
+```
+
 ### Project Structure
 
 ```
@@ -160,6 +212,7 @@ See [Security Documentation](docs/DEVELOPMENT.md#security) for details.
 - **[Contributing Guidelines](docs/CONTRIBUTING.md)** - How to contribute to this project
 - **[Development Setup](docs/DEVELOPMENT.md)** - Local development environment setup  
 - **[Deployment Guide](docs/DEPLOYMENT.md)** - Production deployment instructions
+- **[Release Process](docs/RELEASE_PROCESS.md)** - How to create and manage releases
 - **[Branch Strategy](docs/BRANCH_STRATEGY.md)** - Git workflow and branch protection
 - **[API Documentation](API_DOCUMENTATION.md)** - Complete API reference
 

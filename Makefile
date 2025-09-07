@@ -84,10 +84,99 @@ lint:
 	@echo "Linting code..."
 	golangci-lint run
 
+# Release management
+.PHONY: release-check
+release-check:
+	@echo "Checking if ready for release..."
+	@if [ -z "$(VERSION)" ]; then \
+		echo "Error: VERSION is required. Usage: make release VERSION=v1.0.0"; \
+		exit 1; \
+	fi
+	@if ! echo "$(VERSION)" | grep -qE "^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$$"; then \
+		echo "Error: VERSION must be in format v1.2.3 or v1.2.3-alpha"; \
+		exit 1; \
+	fi
+	@echo "Version format is valid: $(VERSION)"
+	@echo "Running tests before release..."
+	@go test ./...
+	@echo "Running go vet..."
+	@go vet ./...
+	@if command -v golangci-lint >/dev/null 2>&1; then \
+		echo "Running linter..."; \
+		golangci-lint run; \
+	else \
+		echo "Warning: golangci-lint not found, skipping lint check"; \
+	fi
+	@echo "All checks passed!"
+
+.PHONY: release-tag
+release-tag: release-check
+	@echo "Creating release tag $(VERSION)..."
+	@git tag -a $(VERSION) -m "Release $(VERSION)"
+	@echo "Tag $(VERSION) created successfully"
+	@echo "Push the tag with: git push origin $(VERSION)"
+
+.PHONY: release-build
+release-build:
+	@echo "Building release binaries..."
+	@mkdir -p dist
+	@echo "Building for Linux (amd64)..."
+	@GOOS=linux GOARCH=amd64 go build -ldflags="-X main.version=$(VERSION) -s -w" -o dist/sms-sync-server-$(VERSION)-linux-amd64 ./cmd/server
+	@echo "Building for Linux (arm64)..."
+	@GOOS=linux GOARCH=arm64 go build -ldflags="-X main.version=$(VERSION) -s -w" -o dist/sms-sync-server-$(VERSION)-linux-arm64 ./cmd/server
+	@echo "Building for macOS (amd64)..."
+	@GOOS=darwin GOARCH=amd64 go build -ldflags="-X main.version=$(VERSION) -s -w" -o dist/sms-sync-server-$(VERSION)-darwin-amd64 ./cmd/server
+	@echo "Building for macOS (arm64)..."
+	@GOOS=darwin GOARCH=arm64 go build -ldflags="-X main.version=$(VERSION) -s -w" -o dist/sms-sync-server-$(VERSION)-darwin-arm64 ./cmd/server
+	@echo "Building for Windows (amd64)..."
+	@GOOS=windows GOARCH=amd64 go build -ldflags="-X main.version=$(VERSION) -s -w" -o dist/sms-sync-server-$(VERSION)-windows-amd64.exe ./cmd/server
+	@echo "Generating checksums..."
+	@cd dist && for file in sms-sync-server-$(VERSION)-*; do sha256sum "$$file" > "$$file.sha256"; done
+	@echo "Release binaries built successfully in dist/"
+
+.PHONY: release-local
+release-local: release-check release-build
+	@echo "Local release preparation completed!"
+	@echo "Files created in dist/:"
+	@ls -la dist/
+	@echo ""
+	@echo "To complete the release:"
+	@echo "1. Review the binaries in dist/"
+	@echo "2. Run: git push origin $(VERSION)"
+	@echo "3. The GitHub Action will automatically create the release"
+
+.PHONY: release
+release: release-tag
+	@echo "Pushing tag $(VERSION) to trigger release..."
+	@git push origin $(VERSION)
+	@echo "Release triggered! Check GitHub Actions for progress."
+
+# Docker commands
+.PHONY: docker-build
+docker-build:
+	@echo "Building Docker image..."
+	@docker build -t sms-sync-server:latest --build-arg VERSION=$(shell git describe --tags --always) .
+
+.PHONY: docker-run
+docker-run:
+	@echo "Running Docker container..."
+	@docker run -p 8080:8080 -v $(PWD)/data:/app/data sms-sync-server:latest
+
+# Version management
+.PHONY: version
+version:
+	@if [ -n "$(shell git describe --tags --exact-match 2>/dev/null)" ]; then \
+		echo "$(shell git describe --tags --exact-match)"; \
+	else \
+		echo "$(shell git describe --tags --always)-dev"; \
+	fi
+
 # Help command
 .PHONY: help
 help:
 	@echo "Available commands:"
+	@echo ""
+	@echo "Development:"
 	@echo "  make deps        - Install all dependencies"
 	@echo "  make build       - Build the server"
 	@echo "  make run         - Run the server"
@@ -96,8 +185,27 @@ help:
 	@echo "  make logs-error  - View error logs"
 	@echo "  make token       - Generate a JWT token"
 	@echo "  make test-sms    - Test the SMS endpoint"
+	@echo ""
+	@echo "Testing & Quality:"
 	@echo "  make test        - Run tests"
 	@echo "  make coverage    - Run tests with coverage report"
 	@echo "  make fmt         - Format code"
 	@echo "  make lint        - Lint code"
-	@echo "  make help        - Show this help message" 
+	@echo ""
+	@echo "Release Management:"
+	@echo "  make release-check VERSION=v1.0.0  - Check if ready for release"
+	@echo "  make release-tag VERSION=v1.0.0    - Create release tag"
+	@echo "  make release-build VERSION=v1.0.0  - Build release binaries"
+	@echo "  make release-local VERSION=v1.0.0  - Prepare local release"
+	@echo "  make release VERSION=v1.0.0        - Create and push release tag"
+	@echo "  make version                       - Show current version"
+	@echo ""
+	@echo "Docker:"
+	@echo "  make docker-build - Build Docker image"
+	@echo "  make docker-run   - Run Docker container"
+	@echo ""
+	@echo "  make help        - Show this help message"
+	@echo "  make release     - Create a new release"
+	@echo "  make docker-build - Build the Docker image"
+	@echo "  make docker-run   - Run the Docker container"
+	@echo "  make version     - Show the current version"
