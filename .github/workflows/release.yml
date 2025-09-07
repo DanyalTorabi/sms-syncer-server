@@ -1,0 +1,274 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., v1.0.0)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark as prerelease'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  GO_VERSION: '1.21'
+
+jobs:
+  # Validate release
+  validate:
+    name: Validate Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      is_prerelease: ${{ steps.version.outputs.is_prerelease }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Determine version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          VERSION="${{ github.event.inputs.version }}"
+          IS_PRERELEASE="${{ github.event.inputs.prerelease }}"
+        else
+          VERSION="${GITHUB_REF#refs/tags/}"
+          # Check if version contains alpha, beta, rc, or pre
+          if [[ "$VERSION" =~ (alpha|beta|rc|pre) ]]; then
+            IS_PRERELEASE="true"
+          else
+            IS_PRERELEASE="false"
+          fi
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
+        echo "Version: $VERSION"
+        echo "Is prerelease: $IS_PRERELEASE"
+
+    - name: Validate version format
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$ ]]; then
+          echo "Error: Version '$VERSION' does not match expected format (v1.2.3 or v1.2.3-alpha)"
+          exit 1
+        fi
+
+  # Run tests before release
+  test:
+    name: Test Before Release
+    runs-on: ubuntu-latest
+    needs: validate
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+
+    - name: Run tests
+      run: |
+        go mod download
+        go test -v -race ./...
+
+    - name: Run linter
+      uses: golangci/golangci-lint-action@v3
+      with:
+        version: latest
+
+  # Build release binaries
+  build:
+    name: Build Release Binaries
+    runs-on: ubuntu-latest
+    needs: [validate, test]
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            suffix: linux-amd64
+          - goos: linux
+            goarch: arm64
+            suffix: linux-arm64
+          - goos: darwin
+            goarch: amd64
+            suffix: darwin-amd64
+          - goos: darwin
+            goarch: arm64
+            suffix: darwin-arm64
+          - goos: windows
+            goarch: amd64
+            suffix: windows-amd64.exe
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+
+    - name: Build binary
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+        VERSION: ${{ needs.validate.outputs.version }}
+      run: |
+        mkdir -p dist
+        BINARY_NAME="sms-sync-server-${{ needs.validate.outputs.version }}-${{ matrix.suffix }}"
+        go build -ldflags="-X main.version=$VERSION -s -w" -o "dist/$BINARY_NAME" ./cmd/server
+        
+        # Create checksum
+        cd dist
+        sha256sum "$BINARY_NAME" > "$BINARY_NAME.sha256"
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: binary-${{ matrix.suffix }}
+        path: dist/*
+
+  # Create GitHub release
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [validate, test, build]
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: release-artifacts
+
+    - name: Prepare release assets
+      run: |
+        mkdir -p release-assets
+        find release-artifacts -type f -exec cp {} release-assets/ \;
+        ls -la release-assets/
+
+    - name: Generate release notes
+      id: release_notes
+      run: |
+        VERSION="${{ needs.validate.outputs.version }}"
+        
+        # Get the previous tag
+        PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        
+        # Generate release notes
+        cat > release_notes.md << EOF
+        # Release $VERSION
+        
+        ## What's Changed
+        
+        EOF
+        
+        if [ -n "$PREV_TAG" ]; then
+          echo "### Commits since $PREV_TAG:" >> release_notes.md
+          git log --pretty=format:"- %s (%h)" "$PREV_TAG"..HEAD >> release_notes.md
+        else
+          echo "### Initial Release" >> release_notes.md
+          echo "This is the first release of the SMS Syncer Server." >> release_notes.md
+        fi
+        
+        cat >> release_notes.md << EOF
+        
+        ## Installation
+        
+        Download the appropriate binary for your platform from the assets below.
+        
+        ### Linux (x64)
+        \`\`\`bash
+        curl -L -o sms-sync-server https://github.com/DanyalTorabi/sms-syncer-server/releases/download/$VERSION/sms-sync-server-$VERSION-linux-amd64
+        chmod +x sms-sync-server
+        \`\`\`
+        
+        ### macOS (Apple Silicon)
+        \`\`\`bash
+        curl -L -o sms-sync-server https://github.com/DanyalTorabi/sms-syncer-server/releases/download/$VERSION/sms-sync-server-$VERSION-darwin-arm64
+        chmod +x sms-sync-server
+        \`\`\`
+        
+        ### Windows
+        Download \`sms-sync-server-$VERSION-windows-amd64.exe\` from the assets below.
+        
+        ## Verification
+        
+        All binaries include SHA256 checksums for verification.
+        EOF
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ needs.validate.outputs.version }}
+        name: Release ${{ needs.validate.outputs.version }}
+        body_path: release_notes.md
+        files: release-assets/*
+        prerelease: ${{ needs.validate.outputs.is_prerelease == 'true' }}
+        draft: false
+        generate_release_notes: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Build and push Docker image (optional)
+  docker:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    needs: [validate, test]
+    if: ${{ needs.validate.outputs.is_prerelease == 'false' }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ghcr.io/${{ github.repository }}
+        tags: |
+          type=ref,event=tag
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        build-args: |
+          VERSION=${{ needs.validate.outputs.version }}

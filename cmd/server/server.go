@@ -87,8 +87,10 @@ func setupRoutes(router *gin.Engine, cfg *config.Config, smsService *services.SM
 func handleHealthCheck(c *gin.Context) {
 	logger.Info("Health check endpoint called")
 	c.JSON(http.StatusOK, gin.H{
-		"status": "ok",
-		"time":   time.Now().UTC(),
+		"status":  "ok",
+		"time":    time.Now().UTC(),
+		"version": version,
+		"service": "sms-sync-server",
 	})
 }
 

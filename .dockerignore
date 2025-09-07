@@ -1,0 +1,59 @@
+# Git
+.git
+.gitignore
+.github
+
+# Documentation
+*.md
+docs/
+
+# Development files
+.vscode/
+.idea/
+
+# Build artifacts
+build/
+dist/
+*.exe
+sms-sync-server
+
+# Logs
+*.log
+logs/
+
+# Database files
+*.db
+*.sqlite
+
+# Test files
+*_test.go
+coverage.out
+coverage.html
+
+# Temporary files
+tmp/
+temp/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Dependencies (will be downloaded in container)
+vendor/
+
+# Configuration files that shouldn't be in container
+.env
+config.local.*
+
+# Postman collection
+postman-collection.json
+
+# License and support files (not needed at runtime)
+LICENSE
+SUPPORT.md
+MIGRATION_COMPLETE.md
+SCHEMA_MIGRATION.md
+
+# Development scripts
+scripts/
+Makefile
