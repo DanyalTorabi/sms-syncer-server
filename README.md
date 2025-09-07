@@ -170,6 +170,10 @@ All pull requests require:
 
 MIT License - See the [LICENSE](LICENSE) file for details.
 
+## 🆘 Support
+
+**No official support is provided for this project.** This is an open-source project maintained by volunteers. For details about getting help and contributing, please see our [Support Guide](SUPPORT.md).
+
 ## 📊 Project Status
 
 ![CI/CD](https://github.com/DanyalTorabi/sms-syncer-server/workflows/CI/CD%20Pipeline/badge.svg)
