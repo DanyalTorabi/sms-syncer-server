@@ -6,6 +6,9 @@ This guide provides detailed information for developers working on the SMS Sync 
 
 - [Architecture Overview](#architecture-overview)
 - [Development Environment](#development-environment)
+  - [Required Tools](#required-tools)
+  - [Git Hooks Setup](#git-hooks-setup)
+  - [IDE Setup](#ide-setup)
 - [Database Management](#database-management)
 - [API Development](#api-development)
 - [Testing Strategy](#testing-strategy)
@@ -65,6 +68,125 @@ go install github.com/go-delve/delve/cmd/dlv@latest
 sudo apt-get install sqlite3  # Ubuntu/Debian
 brew install sqlite3          # macOS
 ```
+
+### Git Hooks Setup
+
+The project includes pre-commit hooks to ensure code quality and prevent CI failures. These hooks run the same linters as our GitHub Actions pipeline.
+
+#### Automatic Setup
+
+```bash
+# Run the setup script (recommended)
+./scripts/setup-git-hooks.sh
+```
+
+This script will:
+- Install golangci-lint if not present
+- Setup pre-commit hooks
+- Verify the configuration
+
+#### Manual Setup
+
+If you prefer manual setup:
+
+```bash
+# Make the pre-commit hook executable
+chmod +x .git/hooks/pre-commit
+
+# Test the hook
+git add . && git commit -m "test" --dry-run
+```
+
+#### What the Hooks Check
+
+The pre-commit hooks will automatically run:
+
+1. **gofmt** - Go code formatting
+   ```bash
+   gofmt -l $(find . -name "*.go" | grep -v vendor)
+   ```
+
+2. **go vet** - Go static analysis
+   ```bash
+   go vet ./...
+   ```
+
+3. **golangci-lint** - Comprehensive linting
+   ```bash
+   golangci-lint run --new-from-rev=HEAD --timeout=5m
+   ```
+
+4. **go mod verify** - Module integrity (if go.mod/go.sum changed)
+   ```bash
+   go mod verify
+   ```
+
+#### Additional Linting Options
+
+The project provides several Makefile targets for specific linting needs:
+
+```bash
+# Run all linters (same as CI)
+make lint
+
+# Check only line length issues
+make lint-line-length
+
+# Run a specific linter
+make lint-single LINTER=lll          # Line length
+make lint-single LINTER=gofmt        # Formatting
+make lint-single LINTER=staticcheck  # Static analysis
+
+# Auto-fix issues where possible
+make lint-fix
+```
+
+#### Bypassing Hooks
+
+In emergency situations, you can bypass the hooks:
+
+```bash
+git commit --no-verify -m "emergency fix"
+```
+
+**Note**: Only use `--no-verify` when absolutely necessary, as it may introduce code quality issues.
+
+#### Troubleshooting
+
+Common issues and solutions:
+
+```bash
+# Hook fails with "golangci-lint not found"
+./scripts/setup-git-hooks.sh
+
+# Hook takes too long
+golangci-lint run --fast
+
+# Fix formatting issues
+gofmt -w .
+go mod tidy
+
+# Check what will be linted
+golangci-lint run --new-from-rev=HEAD --issues-exit-code=0
+```
+
+#### Test Utilities and Linting
+
+Test utility files (like `test_utils.go`, `*_mock.go`) contain functions that are only used in test files. Since test files are excluded from linting, the linter configuration includes special rules to exclude these utility files from `unused` function checks:
+
+```yaml
+# In .golangci.yml
+issues:
+  exclude-rules:
+    - path: ".*test_utils\\.go$"
+      linters:
+        - unused
+    - path: ".*_mock\\.go$" 
+      linters:
+        - unused
+```
+
+This prevents false positives where test helper functions are marked as "unused" when they're actually used in test files.
 
 ### IDE Setup
 

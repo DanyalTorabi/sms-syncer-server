@@ -99,8 +99,33 @@ make fmt
 # Lint code
 make lint
 
+# Check specific linting issues
+make lint-line-length        # Check line length issues (lll linter)
+make lint-single LINTER=lll  # Run specific linter
+make lint-fix                # Auto-fix linting issues
+
 # Build for production  
 make build
+```
+
+### Git Hooks Setup
+
+To ensure code quality and prevent linting issues in CI, set up pre-commit hooks that run the same linters as our GitHub Actions:
+
+```bash
+# Setup git hooks (one-time setup)
+./scripts/setup-git-hooks.sh
+```
+
+This will automatically install and configure:
+- **gofmt** - Go code formatting
+- **go vet** - Go static analysis
+- **golangci-lint** - Comprehensive linting (same config as CI)
+- **go mod verify** - Module integrity checks
+
+The hooks will run automatically before each commit. To bypass in emergency situations:
+```bash
+git commit --no-verify
 ```
 
 ## 📦 Installation & Releases
