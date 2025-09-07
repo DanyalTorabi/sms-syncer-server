@@ -188,13 +188,8 @@ jobs:
         
         echo "Creating tag: $NEW_VERSION"
         
-        # Create annotated tag with release notes
-        git tag -a "$NEW_VERSION" -m "Release $NEW_VERSION
-
-Auto-generated $RELEASE_TYPE release.
-
-Changes since last release:
-$(git log --pretty=format:"- %s (%h)" $(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")..HEAD 2>/dev/null || echo "- Initial release")"
+        # Create annotated tag with simple message
+        git tag -a "$NEW_VERSION" -m "Release $NEW_VERSION - Auto-generated $RELEASE_TYPE release"
         
         echo "Pushing tag to origin..."
         git push origin "$NEW_VERSION"
@@ -213,7 +208,6 @@ $(git log --pretty=format:"- %s (%h)" $(git describe --tags --abbrev=0 HEAD^ 2>/
         echo "Auto-release process completed!"
         echo "Release ${{ steps.version.outputs.version }} is being built..."
 
-  # Optional: Create a summary comment
   summary:
     name: Release Summary
     runs-on: ubuntu-latest
