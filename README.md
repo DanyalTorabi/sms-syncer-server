@@ -15,7 +15,7 @@ A robust, production-ready SMS synchronization server built with Go, featuring J
 
 ## Prerequisites
 
-- Go 1.22 or later
+- Go 1.21 or later
 - Git
 
 ## Setup
@@ -48,17 +48,30 @@ GET /health
 ```
 Returns server status and current time.
 
+### Authentication
+```
+POST /api/auth/login
+Content-Type: application/json
+
+{
+  "username": "string",
+  "password": "string"
+}
+```
+Returns a JWT token for authentication.
+
 ### Add SMS
 ```
 POST /api/sms/add
 Content-Type: application/json
+Authorization: Bearer <jwt-token>
 
 {
-  "uuid": "string",
-  "sender": "string",
-  "message": "string",
-  "timestamp": "string",
-  "retryCount": number
+  "phone_number": "string",
+  "body": "string",
+  "event_type": "string",
+  "sms_timestamp": number,
+  "event_timestamp": number
 }
 ```
 
@@ -77,8 +90,14 @@ go mod tidy
 # Run tests
 make test
 
-# Run with live reload
-make dev
+# Run tests with coverage
+make coverage
+
+# Format code
+make fmt
+
+# Lint code
+make lint
 
 # Build for production  
 make build
@@ -111,12 +130,14 @@ sms-sync-server/
 │   └── utils/                 # Shared utilities
 ├── router/                    # HTTP routing
 ├── .golangci.yml             # Linting configuration
-└── Makefile                  # Build automation
+├── Makefile                  # Build automation
+├── postman-collection.json   # API testing collection
+└── sms-message-schema.json   # JSON schema for SMS messages
 ```
 
 ### 🧪 Testing
 
-- **Unit Tests**: `go test ./...` 
+- **Unit Tests**: `go test ./...` or `make test`
 - **Integration Tests**: `go test -tags=integration ./internal/handlers/`
 - **Coverage Report**: `make coverage`
 - **Linting**: `make lint`

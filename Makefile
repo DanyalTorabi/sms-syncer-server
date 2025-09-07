@@ -64,6 +64,14 @@ test:
 	@echo "Running tests..."
 	go test ./...
 
+# Run tests with coverage
+.PHONY: coverage
+coverage:
+	@echo "Running tests with coverage..."
+	go test -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report generated: coverage.html"
+
 # Format code
 .PHONY: fmt
 fmt:
@@ -89,6 +97,7 @@ help:
 	@echo "  make token       - Generate a JWT token"
 	@echo "  make test-sms    - Test the SMS endpoint"
 	@echo "  make test        - Run tests"
+	@echo "  make coverage    - Run tests with coverage report"
 	@echo "  make fmt         - Format code"
 	@echo "  make lint        - Lint code"
 	@echo "  make help        - Show this help message" 
