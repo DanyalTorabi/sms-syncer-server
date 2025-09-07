@@ -103,6 +103,26 @@ make lint
 make build
 ```
 
+### Git Hooks Setup
+
+To ensure code quality and prevent linting issues in CI, set up pre-commit hooks that run the same linters as our GitHub Actions:
+
+```bash
+# Setup git hooks (one-time setup)
+./scripts/setup-git-hooks.sh
+```
+
+This will automatically install and configure:
+- **gofmt** - Go code formatting
+- **go vet** - Go static analysis
+- **golangci-lint** - Comprehensive linting (same config as CI)
+- **go mod verify** - Module integrity checks
+
+The hooks will run automatically before each commit. To bypass in emergency situations:
+```bash
+git commit --no-verify
+```
+
 ## 📦 Installation & Releases
 
 ### Download Pre-built Binaries
