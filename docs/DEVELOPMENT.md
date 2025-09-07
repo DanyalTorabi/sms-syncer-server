@@ -121,6 +121,26 @@ The pre-commit hooks will automatically run:
    go mod verify
    ```
 
+#### Additional Linting Options
+
+The project provides several Makefile targets for specific linting needs:
+
+```bash
+# Run all linters (same as CI)
+make lint
+
+# Check only line length issues
+make lint-line-length
+
+# Run a specific linter
+make lint-single LINTER=lll          # Line length
+make lint-single LINTER=gofmt        # Formatting
+make lint-single LINTER=staticcheck  # Static analysis
+
+# Auto-fix issues where possible
+make lint-fix
+```
+
 #### Bypassing Hooks
 
 In emergency situations, you can bypass the hooks:

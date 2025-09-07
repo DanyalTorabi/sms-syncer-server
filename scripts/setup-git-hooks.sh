@@ -194,17 +194,22 @@ fi
 TEMP_FILE_LIST=$(mktemp)
 echo "$STAGED_GO_FILES" > "$TEMP_FILE_LIST"
 
-# Run golangci-lint only on staged files
-if ! golangci-lint run --new-from-rev=HEAD --timeout=5m --issues-exit-code=1; then
-    print_error "golangci-lint found issues in staged files"
+# Run golangci-lint with full checks (same as CI)
+print_info "Running golangci-lint..."
+if [ -f ".golangci.yml" ] || [ -f ".golangci.yaml" ]; then
+    print_info "Using existing golangci-lint configuration"
+else
+    print_warning "No golangci-lint configuration found, using default settings"
+fi
+
+# Run golangci-lint with the same configuration as CI
+if ! golangci-lint run --timeout=5m --issues-exit-code=1; then
+    print_error "golangci-lint found issues"
     print_info "Please fix the linting issues before committing"
     print_info "You can run 'golangci-lint run --fix' to auto-fix some issues"
     print_info "Or use 'git commit --no-verify' to bypass this check (not recommended)"
-    rm -f "$TEMP_FILE_LIST"
     exit 1
 fi
-
-rm -f "$TEMP_FILE_LIST"
 print_success "golangci-lint check passed"
 
 # Check if go.mod and go.sum are properly maintained

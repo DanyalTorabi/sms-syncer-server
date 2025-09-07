@@ -99,6 +99,11 @@ make fmt
 # Lint code
 make lint
 
+# Check specific linting issues
+make lint-line-length        # Check line length issues (lll linter)
+make lint-single LINTER=lll  # Run specific linter
+make lint-fix                # Auto-fix linting issues
+
 # Build for production  
 make build
 ```

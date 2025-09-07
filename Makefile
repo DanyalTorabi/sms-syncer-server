@@ -84,6 +84,29 @@ lint:
 	@echo "Linting code..."
 	golangci-lint run
 
+# Check line length issues specifically
+.PHONY: lint-line-length
+lint-line-length:
+	@echo "Checking line length issues..."
+	golangci-lint run --enable-only=lll
+
+# Run specific linter
+.PHONY: lint-single
+lint-single:
+	@if [ -z "$(LINTER)" ]; then \
+		echo "Error: LINTER is required. Usage: make lint-single LINTER=lll"; \
+		echo "Available linters: lll, gofmt, govet, staticcheck, etc."; \
+		exit 1; \
+	fi
+	@echo "Running $(LINTER) linter..."
+	golangci-lint run --enable-only=$(LINTER)
+
+# Fix auto-fixable linting issues
+.PHONY: lint-fix
+lint-fix:
+	@echo "Auto-fixing linting issues..."
+	golangci-lint run --fix
+
 # Setup git hooks for pre-commit linting
 .PHONY: setup-hooks
 setup-hooks:
@@ -227,11 +250,14 @@ help:
 	@echo "  make test-sms    - Test the SMS endpoint"
 	@echo ""
 	@echo "Testing & Quality:"
-	@echo "  make test        - Run tests"
-	@echo "  make coverage    - Run tests with coverage report"
-	@echo "  make fmt         - Format code"
-	@echo "  make lint        - Lint code"
-	@echo "  make setup-hooks - Setup git hooks for pre-commit linting"
+	@echo "  make test              - Run tests"
+	@echo "  make coverage          - Run tests with coverage report"
+	@echo "  make fmt               - Format code"
+	@echo "  make lint              - Lint code (all linters)"
+	@echo "  make lint-line-length  - Check line length issues (lll linter)"
+	@echo "  make lint-single LINTER=<name> - Run specific linter"
+	@echo "  make lint-fix          - Auto-fix linting issues"
+	@echo "  make setup-hooks       - Setup git hooks for pre-commit linting"
 	@echo ""
 	@echo "Release Management:"
 	@echo "  make release-check VERSION=v1.0.0  - Check if ready for release"
