@@ -2,8 +2,14 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
+	"path/filepath"
 	"time"
+
+	"sms-sync-server/pkg/logger"
+
+	"go.uber.org/zap"
 )
 
 // Config holds all configuration settings
@@ -27,11 +33,30 @@ type Config struct {
 
 // LoadConfig loads configuration from a JSON file
 func LoadConfig(path string) (*Config, error) {
-	file, err := os.Open(path)
+	// Validate path to prevent directory traversal
+	cleanPath := filepath.Clean(path)
+	if !filepath.IsAbs(cleanPath) {
+		return nil, fmt.Errorf("config path must be absolute")
+	}
+
+	// Check if file exists and is a regular file
+	fileInfo, err := os.Stat(cleanPath)
+	if err != nil {
+		return nil, fmt.Errorf("config file error: %w", err)
+	}
+	if !fileInfo.Mode().IsRegular() {
+		return nil, fmt.Errorf("config path is not a regular file")
+	}
+
+	file, err := os.Open(cleanPath)
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			logger.Warn("Failed to close config file", zap.Error(closeErr))
+		}
+	}()
 
 	var config Config
 	if err := json.NewDecoder(file).Decode(&config); err != nil {

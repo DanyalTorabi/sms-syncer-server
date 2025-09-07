@@ -19,9 +19,9 @@ func SetTestMode(enabled bool) {
 
 // Init initializes the logger with the given configuration
 func Init(logPath string) error {
-	// Ensure the directory exists
+	// Ensure the directory exists with secure permissions
 	dir := filepath.Dir(logPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0750); err != nil {
 		return err
 	}
 

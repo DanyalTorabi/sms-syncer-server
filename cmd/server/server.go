@@ -46,10 +46,14 @@ func SetupServer(cfg *config.Config) (*http.Server, error) {
 	// Setup routes
 	setupRoutes(router, cfg, smsService)
 
-	// Create server
+	// Create server with security timeouts
 	srv := &http.Server{
-		Addr:    fmt.Sprintf(":%d", cfg.Server.Port),
-		Handler: router,
+		Addr:              fmt.Sprintf(":%d", cfg.Server.Port),
+		Handler:           router,
+		ReadTimeout:       15 * time.Second,
+		ReadHeaderTimeout: 5 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	return srv, nil

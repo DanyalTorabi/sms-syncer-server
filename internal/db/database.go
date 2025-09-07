@@ -3,9 +3,13 @@ package db
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"strings"
 
+	"sms-sync-server/pkg/logger"
+
 	_ "github.com/mattn/go-sqlite3"
+	"go.uber.org/zap"
 )
 
 type SMSMessage struct {
@@ -49,13 +53,17 @@ func NewDatabase(dbPath string) (*Database, error) {
 
 	// Verify we can actually connect to the database
 	if err := db.Ping(); err != nil {
-		db.Close()
+		if closeErr := db.Close(); closeErr != nil {
+			return nil, fmt.Errorf("ping failed: %w, close failed: %v", err, closeErr)
+		}
 		return nil, err
 	}
 
 	// Try to create tables - if this fails, the database is not usable
 	if err := createTables(db); err != nil {
-		db.Close()
+		if closeErr := db.Close(); closeErr != nil {
+			return nil, fmt.Errorf("create tables failed: %w, close failed: %v", err, closeErr)
+		}
 		return nil, err
 	}
 
@@ -173,7 +181,11 @@ func (d *Database) GetMessages(userID string, limit, offset int) ([]*SMSMessage,
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			logger.Warn("Failed to close database rows", zap.Error(closeErr))
+		}
+	}()
 
 	var messages []*SMSMessage
 	for rows.Next() {
