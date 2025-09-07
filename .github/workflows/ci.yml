@@ -120,6 +120,8 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     - name: Set up Go
       uses: actions/setup-go@v5
@@ -129,13 +131,8 @@ jobs:
 
     - name: Build application
       run: |
-        echo "Current directory: $(pwd)"
-        echo "Directory contents:"
         ls -la
-        echo "cmd directory contents:"
         ls -la cmd/
-        echo "cmd/server directory contents:"
-        ls -la cmd/server/
         go mod download
         go build -v -o sms-sync-server ./cmd/server
 
