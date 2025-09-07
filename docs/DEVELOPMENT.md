@@ -170,6 +170,24 @@ go mod tidy
 golangci-lint run --new-from-rev=HEAD --issues-exit-code=0
 ```
 
+#### Test Utilities and Linting
+
+Test utility files (like `test_utils.go`, `*_mock.go`) contain functions that are only used in test files. Since test files are excluded from linting, the linter configuration includes special rules to exclude these utility files from `unused` function checks:
+
+```yaml
+# In .golangci.yml
+issues:
+  exclude-rules:
+    - path: ".*test_utils\\.go$"
+      linters:
+        - unused
+    - path: ".*_mock\\.go$" 
+      linters:
+        - unused
+```
+
+This prevents false positives where test helper functions are marked as "unused" when they're actually used in test files.
+
 ### IDE Setup
 
 #### VS Code

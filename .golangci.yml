@@ -47,6 +47,12 @@ issues:
     - linters:
         - lll
       source: "^//go:generate "
+    - path: ".*test_utils\\.go$"
+      linters:
+        - unused
+    - path: ".*_mock\\.go$"
+      linters:
+        - unused
 
   exclude-use-default: false
   max-issues-per-linter: 0

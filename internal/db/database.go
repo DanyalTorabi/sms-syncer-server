@@ -126,7 +126,8 @@ func (d *Database) AddMessage(msg *SMSMessage) error {
 	}
 
 	_, err := d.db.Exec(
-		"INSERT INTO messages (user_id, smsId, smsTimestamp, eventTimestamp, phoneNumber, body, eventType, threadId, dateSent, person) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		"INSERT INTO messages (user_id, smsId, smsTimestamp, eventTimestamp, phoneNumber, body, eventType, "+
+			"threadId, dateSent, person) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 		msg.UserID,
 		msg.SmsID,
 		msg.SmsTimestamp,
@@ -173,7 +174,8 @@ func (d *Database) GetMessages(userID string, limit, offset int) ([]*SMSMessage,
 	}
 
 	rows, err := d.db.Query(
-		"SELECT id, user_id, smsId, smsTimestamp, eventTimestamp, phoneNumber, body, eventType, threadId, dateSent, person FROM messages WHERE user_id = ? ORDER BY eventTimestamp DESC LIMIT ? OFFSET ?",
+		"SELECT id, user_id, smsId, smsTimestamp, eventTimestamp, phoneNumber, body, eventType, "+
+			"threadId, dateSent, person FROM messages WHERE user_id = ? ORDER BY eventTimestamp DESC LIMIT ? OFFSET ?",
 		userID,
 		limit,
 		offset,
@@ -190,7 +192,8 @@ func (d *Database) GetMessages(userID string, limit, offset int) ([]*SMSMessage,
 	var messages []*SMSMessage
 	for rows.Next() {
 		msg := &SMSMessage{}
-		err := rows.Scan(&msg.ID, &msg.UserID, &msg.SmsID, &msg.SmsTimestamp, &msg.EventTimestamp, &msg.PhoneNumber, &msg.Body, &msg.EventType, &msg.ThreadID, &msg.DateSent, &msg.Person)
+		err := rows.Scan(&msg.ID, &msg.UserID, &msg.SmsID, &msg.SmsTimestamp, &msg.EventTimestamp,
+			&msg.PhoneNumber, &msg.Body, &msg.EventType, &msg.ThreadID, &msg.DateSent, &msg.Person)
 		if err != nil {
 			return nil, err
 		}
