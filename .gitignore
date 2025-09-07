@@ -1,6 +1,5 @@
 # Binaries
 sms-sync-server
-server
 
 # Test databases
 *.db
