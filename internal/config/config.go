@@ -6,6 +6,10 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"sms-sync-server/pkg/logger"
+
+	"go.uber.org/zap"
 )
 
 // Config holds all configuration settings
@@ -50,9 +54,7 @@ func LoadConfig(path string) (*Config, error) {
 	}
 	defer func() {
 		if closeErr := file.Close(); closeErr != nil {
-			// Log the close error but don't override the main return
-			// In a production environment, you might want to log this properly
-			_ = closeErr
+			logger.Warn("Failed to close config file", zap.Error(closeErr))
 		}
 	}()
 

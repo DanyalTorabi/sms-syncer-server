@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"strings"
 
+	"sms-sync-server/pkg/logger"
+
 	_ "github.com/mattn/go-sqlite3"
+	"go.uber.org/zap"
 )
 
 type SMSMessage struct {
@@ -180,9 +183,7 @@ func (d *Database) GetMessages(userID string, limit, offset int) ([]*SMSMessage,
 	}
 	defer func() {
 		if closeErr := rows.Close(); closeErr != nil {
-			// Log the close error but don't override the main return
-			// In a production environment, you might want to log this properly
-			_ = closeErr
+			logger.Warn("Failed to close database rows", zap.Error(closeErr))
 		}
 	}()
 
