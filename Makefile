@@ -84,6 +84,12 @@ lint:
 	@echo "Linting code..."
 	golangci-lint run
 
+# Setup git hooks for pre-commit linting
+.PHONY: setup-hooks
+setup-hooks:
+	@echo "Setting up git hooks..."
+	./scripts/setup-git-hooks.sh
+
 # Release management
 .PHONY: release-check
 release-check:
@@ -225,6 +231,7 @@ help:
 	@echo "  make coverage    - Run tests with coverage report"
 	@echo "  make fmt         - Format code"
 	@echo "  make lint        - Lint code"
+	@echo "  make setup-hooks - Setup git hooks for pre-commit linting"
 	@echo ""
 	@echo "Release Management:"
 	@echo "  make release-check VERSION=v1.0.0  - Check if ready for release"
