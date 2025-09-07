@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -49,13 +50,17 @@ func NewDatabase(dbPath string) (*Database, error) {
 
 	// Verify we can actually connect to the database
 	if err := db.Ping(); err != nil {
-		db.Close()
+		if closeErr := db.Close(); closeErr != nil {
+			return nil, fmt.Errorf("ping failed: %w, close failed: %v", err, closeErr)
+		}
 		return nil, err
 	}
 
 	// Try to create tables - if this fails, the database is not usable
 	if err := createTables(db); err != nil {
-		db.Close()
+		if closeErr := db.Close(); closeErr != nil {
+			return nil, fmt.Errorf("create tables failed: %w, close failed: %v", err, closeErr)
+		}
 		return nil, err
 	}
 

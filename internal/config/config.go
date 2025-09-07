@@ -2,7 +2,9 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -27,7 +29,22 @@ type Config struct {
 
 // LoadConfig loads configuration from a JSON file
 func LoadConfig(path string) (*Config, error) {
-	file, err := os.Open(path)
+	// Validate path to prevent directory traversal
+	cleanPath := filepath.Clean(path)
+	if !filepath.IsAbs(cleanPath) {
+		return nil, fmt.Errorf("config path must be absolute")
+	}
+
+	// Check if file exists and is a regular file
+	fileInfo, err := os.Stat(cleanPath)
+	if err != nil {
+		return nil, fmt.Errorf("config file error: %w", err)
+	}
+	if !fileInfo.Mode().IsRegular() {
+		return nil, fmt.Errorf("config path is not a regular file")
+	}
+
+	file, err := os.Open(cleanPath)
 	if err != nil {
 		return nil, err
 	}
