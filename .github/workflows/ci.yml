@@ -96,7 +96,18 @@ jobs:
         echo "Running basic security checks..."
         go mod verify
         go vet ./...
-        echo "Basic security scan completed successfully"
+        echo "Basic security checks completed"
+
+    - name: Run Gosec Security Scanner
+      uses: securecodewarrior/github-action-gosec@master
+      with:
+        args: '-no-fail -fmt sarif -out results.sarif ./...'
+
+    - name: Upload SARIF file
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: results.sarif
+      if: always()
 
   # Build job - runs on all branches
   build:
