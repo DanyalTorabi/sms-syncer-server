@@ -1,0 +1,244 @@
+name: Auto Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Type of release'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - prerelease
+        default: patch
+      prerelease_suffix:
+        description: 'Prerelease suffix (only for prerelease type)'
+        required: false
+        type: string
+        default: 'alpha'
+
+env:
+  GO_VERSION: '1.21'
+
+jobs:
+  # Auto-increment version and create release
+  auto-release:
+    name: Auto-Increment and Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Configure Git
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+
+    - name: Get latest version and calculate next version
+      id: version
+      run: |
+        # Get the latest tag, default to v0.0.0 if no tags exist
+        LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+        echo "Latest tag: $LATEST_TAG"
+        
+        # Remove 'v' prefix and handle prerelease suffixes
+        VERSION_CLEAN=$(echo $LATEST_TAG | sed 's/^v//' | sed 's/-.*$//')
+        echo "Clean version: $VERSION_CLEAN"
+        
+        # Split version into components
+        IFS='.' read -ra VERSION_PARTS <<< "$VERSION_CLEAN"
+        MAJOR=${VERSION_PARTS[0]:-0}
+        MINOR=${VERSION_PARTS[1]:-0}
+        PATCH=${VERSION_PARTS[2]:-0}
+        
+        echo "Current version: $MAJOR.$MINOR.$PATCH"
+        
+        # Calculate next version based on release type
+        RELEASE_TYPE="${{ github.event.inputs.release_type }}"
+        
+        case $RELEASE_TYPE in
+          "major")
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+            NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+            ;;
+          "minor")
+            MINOR=$((MINOR + 1))
+            PATCH=0
+            NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+            ;;
+          "patch")
+            PATCH=$((PATCH + 1))
+            NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+            ;;
+          "prerelease")
+            PATCH=$((PATCH + 1))
+            SUFFIX="${{ github.event.inputs.prerelease_suffix }}"
+            NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}-${SUFFIX}"
+            ;;
+          *)
+            echo "Invalid release type: $RELEASE_TYPE"
+            exit 1
+            ;;
+        esac
+        
+        echo "New version: $NEW_VERSION"
+        echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        echo "release_type=$RELEASE_TYPE" >> $GITHUB_OUTPUT
+        
+        # Check if version contains prerelease identifiers
+        if [[ "$NEW_VERSION" =~ (alpha|beta|rc|pre) ]]; then
+          echo "is_prerelease=true" >> $GITHUB_OUTPUT
+        else
+          echo "is_prerelease=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Validate new version
+      run: |
+        NEW_VERSION="${{ steps.version.outputs.version }}"
+        echo "Validating new version: $NEW_VERSION"
+        
+        # Check if tag already exists
+        if git tag -l | grep -q "^${NEW_VERSION}$"; then
+          echo "Error: Tag $NEW_VERSION already exists!"
+          exit 1
+        fi
+        
+        # Validate version format
+        if [[ ! "$NEW_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$ ]]; then
+          echo "Error: Invalid version format: $NEW_VERSION"
+          exit 1
+        fi
+        
+        echo "Version validation passed: $NEW_VERSION"
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+
+    - name: Run pre-release checks
+      run: |
+        echo "Running pre-release checks..."
+        
+        # Download dependencies
+        go mod download
+        go mod verify
+        
+        # Run tests
+        echo "Running tests..."
+        go test -v ./...
+        
+        # Run vet
+        echo "Running go vet..."
+        go vet ./...
+        
+        # Run basic linting if available
+        if command -v golangci-lint >/dev/null 2>&1; then
+          echo "Running golangci-lint..."
+          golangci-lint run
+        else
+          echo "golangci-lint not available, skipping"
+        fi
+        
+        echo "All pre-release checks passed!"
+
+    - name: Update version in files (optional)
+      run: |
+        NEW_VERSION="${{ steps.version.outputs.version }}"
+        echo "Updating version references to $NEW_VERSION"
+        
+        # Update any version files if they exist
+        # This is optional - you can add specific files that need version updates
+        
+        # Example: Update a VERSION file if it exists
+        if [ -f "VERSION" ]; then
+          echo "$NEW_VERSION" > VERSION
+          git add VERSION
+        fi
+        
+        # Example: Update package.json if it exists (for Node.js projects)
+        # if [ -f "package.json" ]; then
+        #   sed -i "s/\"version\": \".*\"/\"version\": \"${NEW_VERSION#v}\"/" package.json
+        #   git add package.json
+        # fi
+        
+        # Check if there are any changes to commit
+        if git diff --staged --quiet; then
+          echo "No version files to update"
+        else
+          git commit -m "chore: bump version to $NEW_VERSION"
+          git push origin main
+        fi
+
+    - name: Create and push tag
+      run: |
+        NEW_VERSION="${{ steps.version.outputs.version }}"
+        RELEASE_TYPE="${{ steps.version.outputs.release_type }}"
+        
+        echo "Creating tag: $NEW_VERSION"
+        
+        # Create annotated tag with release notes
+        git tag -a "$NEW_VERSION" -m "Release $NEW_VERSION
+
+Auto-generated $RELEASE_TYPE release.
+
+Changes since last release:
+$(git log --pretty=format:"- %s (%h)" $(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")..HEAD 2>/dev/null || echo "- Initial release")"
+        
+        echo "Pushing tag to origin..."
+        git push origin "$NEW_VERSION"
+        
+        echo "Tag $NEW_VERSION created and pushed successfully!"
+
+    - name: Wait for release workflow
+      run: |
+        echo "Tag pushed! The main release workflow should now be triggered."
+        echo "You can monitor the release progress at:"
+        echo "https://github.com/${{ github.repository }}/actions"
+        
+        # Wait a moment for the workflow to be triggered
+        sleep 10
+        
+        echo "Auto-release process completed!"
+        echo "Release ${{ steps.version.outputs.version }} is being built..."
+
+  # Optional: Create a summary comment
+  summary:
+    name: Release Summary
+    runs-on: ubuntu-latest
+    needs: auto-release
+    if: always()
+    
+    steps:
+    - name: Create summary
+      run: |
+        echo "## 🚀 Auto Release Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Release Type:** ${{ github.event.inputs.release_type }}" >> $GITHUB_STEP_SUMMARY
+        echo "**New Version:** ${{ needs.auto-release.outputs.version || 'Failed to determine' }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Status:** ${{ needs.auto-release.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "${{ needs.auto-release.result }}" = "success" ]; then
+          echo "✅ **Success!** The release has been triggered." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The main release workflow is now building:" >> $GITHUB_STEP_SUMMARY
+          echo "- 📦 Cross-platform binaries" >> $GITHUB_STEP_SUMMARY
+          echo "- 🐳 Docker images" >> $GITHUB_STEP_SUMMARY
+          echo "- 📝 Release notes" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "[View Release Workflow](https://github.com/${{ github.repository }}/actions)" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ **Failed!** Check the logs above for details." >> $GITHUB_STEP_SUMMARY
+        fi

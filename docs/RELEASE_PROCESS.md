@@ -4,12 +4,76 @@ This document describes the release process for the SMS Syncer Server.
 
 ## Overview
 
-The project uses automated releases via GitHub Actions. Releases are triggered by pushing version tags to the repository.
+The project supports both manual and automated releases:
+- **Auto-increment releases**: Automatically calculate next version number
+- **Manual releases**: Specify exact version numbers
+- **GitHub Actions**: Automated build and release pipeline
 
 ## Release Types
 
 - **Stable releases**: `v1.0.0`, `v1.2.3`
 - **Pre-releases**: `v1.0.0-alpha`, `v1.0.0-beta`, `v1.0.0-rc1`
+
+## Auto-Increment Release Process (Recommended)
+
+### 1. Local Auto-Increment
+
+```bash
+# Auto-increment patch version (1.0.0 -> 1.0.1)
+make release-patch
+
+# Auto-increment minor version (1.0.0 -> 1.1.0)
+make release-minor
+
+# Auto-increment major version (1.0.0 -> 2.0.0)
+make release-major
+
+# Create prerelease (1.0.0 -> 1.0.1-alpha)
+make release-prerelease
+
+# Create beta release (1.0.0 -> 1.0.1-beta)
+make release-beta
+
+# Preview next versions without releasing
+make next-version
+```
+
+### 2. GitHub Actions Auto-Increment
+
+Go to [GitHub Actions](https://github.com/DanyalTorabi/sms-syncer-server/actions) and run the **"Auto Release"** workflow:
+
+1. Click **"Run workflow"**
+2. Select release type:
+   - **patch** - Bug fixes (1.0.0 → 1.0.1)
+   - **minor** - New features (1.0.0 → 1.1.0)
+   - **major** - Breaking changes (1.0.0 → 2.0.0)
+   - **prerelease** - Pre-release version (1.0.0 → 1.0.1-alpha)
+3. For prerelease, optionally specify suffix (alpha, beta, rc1, etc.)
+4. Click **"Run workflow"**
+
+The action will:
+- ✅ Auto-calculate the next version
+- ✅ Run all tests and checks
+- ✅ Create and push the git tag
+- ✅ Trigger the main release workflow automatically
+
+### 3. Auto-Increment Script
+
+You can also use the script directly:
+
+```bash
+# Get next patch version
+./scripts/auto-version.sh patch
+
+# Get next minor version  
+./scripts/auto-version.sh minor
+
+# Get next major version
+./scripts/auto-version.sh major
+
+# Get next prerelease version
+./scripts/auto-version.sh prerelease alpha
+```
 
 ## Manual Release Process
 
@@ -50,9 +114,58 @@ git push origin v1.0.0
 2. Watch the "Release" workflow
 3. Once complete, check the [Releases page](https://github.com/DanyalTorabi/sms-syncer-server/releases)
 
+## Version Management
+
+### Version Format
+
+- Use semantic versioning: `vMAJOR.MINOR.PATCH`
+- Pre-releases: `vMAJOR.MINOR.PATCH-SUFFIX`
+
+### Auto-Increment Logic
+
+Starting from `v1.2.3`:
+- **Patch**: `v1.2.4` (bug fixes)
+- **Minor**: `v1.3.0` (new features)
+- **Major**: `v2.0.0` (breaking changes)
+- **Prerelease**: `v1.2.4-alpha` (pre-release)
+
+### Examples
+
+```bash
+# Current version: v1.2.3
+
+make next-version
+# Output:
+#   Patch:      v1.2.4
+#   Minor:      v1.3.0  
+#   Major:      v2.0.0
+#   Prerelease: v1.2.4-alpha
+
+make release-patch
+# Creates and releases v1.2.4
+
+make release-minor  
+# Creates and releases v1.3.0
+
+make release-prerelease
+# Creates and releases v1.2.4-alpha
+```
+
+## GitHub Actions Workflows
+
+### 1. Auto Release Workflow
+- **File**: `.github/workflows/auto-release.yml`
+- **Trigger**: Manual (workflow_dispatch)
+- **Purpose**: Auto-increment version and trigger release
+
+### 2. Main Release Workflow  
+- **File**: `.github/workflows/release.yml`
+- **Trigger**: Git tags (`v*.*.*`)
+- **Purpose**: Build binaries, Docker images, create GitHub release
+
 ## Automated Release Process
 
-When a version tag is pushed:
+When a version tag is pushed (manually or via auto-increment):
 
 1. **Validation**: Checks version format and runs tests
 2. **Build**: Creates binaries for multiple platforms:
@@ -64,19 +177,6 @@ When a version tag is pushed:
    - Binary attachments
    - SHA256 checksums
 4. **Docker**: Builds and pushes Docker image to GitHub Container Registry
-
-## Version Management
-
-### Version Format
-
-- Use semantic versioning: `vMAJOR.MINOR.PATCH`
-- Pre-releases: `vMAJOR.MINOR.PATCH-SUFFIX`
-
-Examples:
-- `v1.0.0` - Initial release
-- `v1.1.0` - Minor update
-- `v1.0.1` - Patch release
-- `v2.0.0-beta` - Beta release
 
 ### Built-in Version Information
 
@@ -99,16 +199,33 @@ Each release includes:
 - **Docker Image**: Available at `ghcr.io/danyaltorabi/sms-syncer-server`
 - **Source Code**: Automatic GitHub archive
 
-## Manual Release Steps (GitHub Web Interface)
+## Quick Start Examples
 
-If you prefer using GitHub's web interface:
+### For Bug Fixes
+```bash
+make release-patch
+```
 
-1. Go to [Releases](https://github.com/DanyalTorabi/sms-syncer-server/releases)
-2. Click "Create a new release"
-3. Enter tag version (e.g., `v1.0.0`)
-4. Generate release notes or write custom notes
-5. Upload any additional assets if needed
-6. Click "Publish release"
+### For New Features
+```bash
+make release-minor
+```
+
+### For Breaking Changes
+```bash
+make release-major
+```
+
+### For Testing (Prerelease)
+```bash
+make release-prerelease
+```
+
+### Using GitHub Actions
+1. Go to **Actions** → **Auto Release**
+2. Click **Run workflow**
+3. Select **patch** (or desired type)
+4. Click **Run workflow**
 
 ## Troubleshooting
 
@@ -117,7 +234,7 @@ If you prefer using GitHub's web interface:
 1. Check [GitHub Actions](https://github.com/DanyalTorabi/sms-syncer-server/actions) for error details
 2. Common issues:
    - Test failures: Fix tests and retry
-   - Invalid version format: Use `vX.Y.Z` format
+   - Tag already exists: Use different version or delete existing tag
    - Permission issues: Check repository settings
 
 ### Re-release

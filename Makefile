@@ -151,16 +151,50 @@ release: release-tag
 	@git push origin $(VERSION)
 	@echo "Release triggered! Check GitHub Actions for progress."
 
-# Docker commands
-.PHONY: docker-build
-docker-build:
-	@echo "Building Docker image..."
-	@docker build -t sms-sync-server:latest --build-arg VERSION=$(shell git describe --tags --always) .
+# Auto-increment release commands
+.PHONY: release-patch
+release-patch:
+	@echo "Auto-incrementing patch version..."
+	@NEW_VERSION=`./scripts/auto-version.sh patch 2>/dev/null` && \
+	echo "New version will be: $$NEW_VERSION" && \
+	$(MAKE) release VERSION=$$NEW_VERSION
 
-.PHONY: docker-run
-docker-run:
-	@echo "Running Docker container..."
-	@docker run -p 8080:8080 -v $(PWD)/data:/app/data sms-sync-server:latest
+.PHONY: release-minor
+release-minor:
+	@echo "Auto-incrementing minor version..."
+	@NEW_VERSION=`./scripts/auto-version.sh minor 2>/dev/null` && \
+	echo "New version will be: $$NEW_VERSION" && \
+	$(MAKE) release VERSION=$$NEW_VERSION
+
+.PHONY: release-major
+release-major:
+	@echo "Auto-incrementing major version..."
+	@NEW_VERSION=`./scripts/auto-version.sh major 2>/dev/null` && \
+	echo "New version will be: $$NEW_VERSION" && \
+	$(MAKE) release VERSION=$$NEW_VERSION
+
+.PHONY: release-prerelease
+release-prerelease:
+	@echo "Auto-incrementing prerelease version..."
+	@NEW_VERSION=`./scripts/auto-version.sh prerelease alpha 2>/dev/null` && \
+	echo "New version will be: $$NEW_VERSION" && \
+	$(MAKE) release VERSION=$$NEW_VERSION
+
+.PHONY: release-beta
+release-beta:
+	@echo "Auto-incrementing beta version..."
+	@NEW_VERSION=`./scripts/auto-version.sh prerelease beta 2>/dev/null` && \
+	echo "New version will be: $$NEW_VERSION" && \
+	$(MAKE) release VERSION=$$NEW_VERSION
+
+# Show next version without releasing
+.PHONY: next-version
+next-version:
+	@echo "Next versions would be:"
+	@echo -n "  Patch:      " && ./scripts/auto-version.sh patch 2>/dev/null
+	@echo -n "  Minor:      " && ./scripts/auto-version.sh minor 2>/dev/null
+	@echo -n "  Major:      " && ./scripts/auto-version.sh major 2>/dev/null
+	@echo -n "  Prerelease: " && ./scripts/auto-version.sh prerelease alpha 2>/dev/null
 
 # Version management
 .PHONY: version
@@ -198,11 +232,27 @@ help:
 	@echo "  make release-build VERSION=v1.0.0  - Build release binaries"
 	@echo "  make release-local VERSION=v1.0.0  - Prepare local release"
 	@echo "  make release VERSION=v1.0.0        - Create and push release tag"
-	@echo "  make version                       - Show current version"
+	@echo ""
+	@echo "Auto-Increment Release:"
+	@echo "  make release-patch     - Auto-increment patch version and release"
+	@echo "  make release-minor     - Auto-increment minor version and release"
+	@echo "  make release-major     - Auto-increment major version and release"
+	@echo "  make release-prerelease - Auto-increment prerelease version (alpha)"
+	@echo "  make release-beta      - Auto-increment beta version"
+	@echo "  make next-version      - Show what next versions would be"
+	@echo "  make version           - Show current version"
 	@echo ""
 	@echo "Docker:"
 	@echo "  make docker-build - Build Docker image"
 	@echo "  make docker-run   - Run Docker container"
+	@echo ""
+	@echo "Auto-increment Release:"
+	@echo "  make release-patch       - Auto-increment patch version and release"
+	@echo "  make release-minor       - Auto-increment minor version and release"
+	@echo "  make release-major       - Auto-increment major version and release"
+	@echo "  make release-prerelease  - Auto-increment prerelease version and release"
+	@echo "  make release-beta        - Auto-increment beta version and release"
+	@echo "  make next-version        - Show next version numbers"
 	@echo ""
 	@echo "  make help        - Show this help message"
 	@echo "  make release     - Create a new release"
