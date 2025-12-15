@@ -4,11 +4,13 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"sms-sync-server/internal/db"
 	"sms-sync-server/pkg/logger"
+	"sms-sync-server/pkg/middleware"
 
 	"github.com/gin-gonic/gin"
 )
@@ -35,6 +37,14 @@ func NewRouter(database Database) *Router {
 	}
 
 	// Configure routes
+
+	// Apply global middleware
+	r.engine.Use(middleware.RequestIDMiddleware())
+	r.engine.Use(middleware.SecurityHeadersMiddleware())
+	r.engine.Use(middleware.CORSMiddleware())
+	r.engine.Use(middleware.AuditLogMiddleware())
+	r.engine.Use(middleware.RequestSizeLimitMiddleware(1024 * 1024)) // 1MB limit
+
 	r.engine.GET("/health", r.handleHealth)
 	r.engine.NoRoute(r.handleNotFound)
 
@@ -75,24 +85,36 @@ func (r *Router) handleHealth(c *gin.Context) {
 }
 
 func (r *Router) handleNotFound(c *gin.Context) {
-	c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
+	c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 }
 
 func (r *Router) handleMethodNotAllowed(c *gin.Context) {
-	c.JSON(http.StatusMethodNotAllowed, gin.H{"error": "Method not allowed"})
+	c.JSON(http.StatusMethodNotAllowed, gin.H{"error": "method not allowed"})
 }
 
 func (r *Router) validateMessage(msg *db.SMSMessage) error {
 	if msg.UserID == "" {
-		return gin.Error{Err: errors.New("User ID is required"), Type: gin.ErrorTypeBind}
+		return gin.Error{Err: errors.New("user ID is required"), Type: gin.ErrorTypeBind}
 	}
 
 	if msg.PhoneNumber == "" {
 		return gin.Error{Err: errors.New("phone number is required"), Type: gin.ErrorTypeBind}
 	}
 
+	// Basic phone number validation (E.164-ish or at least 10 digits)
+	// Allowing + and digits, min 10 chars, max 15 usually for E.164
+	phoneRegex := regexp.MustCompile(`^\+?[1-9]\d{9,14}$`)
+	if !phoneRegex.MatchString(msg.PhoneNumber) {
+		return gin.Error{Err: errors.New("invalid phone number format"), Type: gin.ErrorTypeBind}
+	}
+
 	if msg.Body == "" || strings.TrimSpace(msg.Body) == "" {
 		return gin.Error{Err: errors.New("message body is required"), Type: gin.ErrorTypeBind}
+	}
+
+	// Message size limit (e.g., 2048 characters)
+	if len(msg.Body) > 2048 {
+		return gin.Error{Err: errors.New("message body too large"), Type: gin.ErrorTypeBind}
 	}
 
 	if msg.EventType == "" {
@@ -100,7 +122,7 @@ func (r *Router) validateMessage(msg *db.SMSMessage) error {
 	}
 
 	if msg.SmsTimestamp == 0 {
-		return gin.Error{Err: errors.New("SMS timestamp is required"), Type: gin.ErrorTypeBind}
+		return gin.Error{Err: errors.New("sms timestamp is required"), Type: gin.ErrorTypeBind}
 	}
 
 	return nil
@@ -110,13 +132,13 @@ func (r *Router) handleAddMessage(c *gin.Context) {
 	logger.Info("SMS add message endpoint called")
 	// Check content type
 	if c.ContentType() != "application/json" {
-		c.JSON(http.StatusUnsupportedMediaType, gin.H{"error": "Unsupported Media Type"})
+		c.JSON(http.StatusUnsupportedMediaType, gin.H{"error": "unsupported media type"})
 		return
 	}
 
 	var msg db.SMSMessage
 	if err := c.ShouldBindJSON(&msg); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 
@@ -127,7 +149,7 @@ func (r *Router) handleAddMessage(c *gin.Context) {
 
 	if err := r.database.AddMessage(&msg); err != nil {
 		log.Printf("Failed to add message: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save message"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save message"})
 		return
 	}
 
@@ -138,7 +160,7 @@ func (r *Router) handleGetMessages(c *gin.Context) {
 	logger.Info("SMS get messages endpoint called")
 	userID := c.Query("user_id")
 	if userID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "User ID is required"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "user ID is required"})
 		return
 	}
 
@@ -147,7 +169,7 @@ func (r *Router) handleGetMessages(c *gin.Context) {
 
 	if limitStr := c.Query("limit"); limitStr != "" {
 		if l, err := strconv.Atoi(limitStr); err != nil || l <= 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid limit value"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid limit value"})
 			return
 		} else {
 			limit = l
@@ -156,7 +178,7 @@ func (r *Router) handleGetMessages(c *gin.Context) {
 
 	if offsetStr := c.Query("offset"); offsetStr != "" {
 		if o, err := strconv.Atoi(offsetStr); err != nil || o < 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid offset value"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid offset value"})
 			return
 		} else {
 			offset = o
@@ -166,7 +188,7 @@ func (r *Router) handleGetMessages(c *gin.Context) {
 	messages, err := r.database.GetMessages(userID, limit, offset)
 	if err != nil {
 		log.Printf("Failed to get messages: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get messages"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get messages"})
 		return
 	}
 

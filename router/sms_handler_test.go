@@ -21,7 +21,7 @@ func TestAddSMSMessage(t *testing.T) {
 
 	validMessage := &db.SMSMessage{
 		UserID:         "test-user",
-		PhoneNumber:    "sender1",
+		PhoneNumber:    "+15551234567",
 		Body:           "test message",
 		EventType:      "RECEIVED",
 		SmsTimestamp:   time.Now().Unix(),
@@ -48,7 +48,7 @@ func TestAddSMSMessage(t *testing.T) {
 			name: "Empty message body",
 			message: &db.SMSMessage{
 				UserID:         "test-user",
-				PhoneNumber:    "sender1",
+				PhoneNumber:    "+15551234567",
 				Body:           "",
 				EventType:      "RECEIVED",
 				SmsTimestamp:   time.Now().Unix(),
@@ -62,7 +62,7 @@ func TestAddSMSMessage(t *testing.T) {
 		{
 			name: "Missing user ID",
 			message: &db.SMSMessage{
-				PhoneNumber:    "sender1",
+				PhoneNumber:    "+15551234567",
 				Body:           "test message",
 				EventType:      "RECEIVED",
 				SmsTimestamp:   time.Now().Unix(),
@@ -71,7 +71,7 @@ func TestAddSMSMessage(t *testing.T) {
 			method:         http.MethodPost,
 			contentType:    "application/json",
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   `{"error":"User ID is required"}`,
+			expectedBody:   `{"error":"user ID is required"}`,
 		},
 		{
 			name: "Missing required fields",
@@ -89,7 +89,7 @@ func TestAddSMSMessage(t *testing.T) {
 			method:         http.MethodGet,
 			contentType:    "application/json",
 			expectedStatus: http.StatusMethodNotAllowed,
-			expectedBody:   `{"error":"Method not allowed"}`,
+			expectedBody:   `{"error":"method not allowed"}`,
 		},
 		{
 			name:           "Invalid content type",
@@ -97,7 +97,7 @@ func TestAddSMSMessage(t *testing.T) {
 			method:         http.MethodPost,
 			contentType:    "text/plain",
 			expectedStatus: http.StatusUnsupportedMediaType,
-			expectedBody:   `{"error":"Unsupported Media Type"}`,
+			expectedBody:   `{"error":"unsupported media type"}`,
 		},
 		{
 			name: "Missing phone number",
@@ -119,7 +119,7 @@ func TestAddSMSMessage(t *testing.T) {
 			method:         http.MethodPost,
 			contentType:    "application/json",
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   `{"error":"Invalid request body"}`,
+			expectedBody:   `{"error":"invalid request body"}`,
 		},
 		{
 			name:           "Empty request body",
@@ -127,13 +127,13 @@ func TestAddSMSMessage(t *testing.T) {
 			method:         http.MethodPost,
 			contentType:    "application/json",
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   `{"error":"Invalid request body"}`,
+			expectedBody:   `{"error":"invalid request body"}`,
 		},
 		{
 			name: "Auto-populated timestamps",
 			message: &db.SMSMessage{
 				UserID:       "test-user",
-				PhoneNumber:  "sender1",
+				PhoneNumber:  "+15551234567",
 				Body:         "test message",
 				EventType:    "RECEIVED",
 				SmsTimestamp: time.Now().Unix(),
@@ -183,7 +183,7 @@ func TestGetSMSMessages(t *testing.T) {
 	testMessages := []*db.SMSMessage{
 		{
 			UserID:         "test-user",
-			PhoneNumber:    "sender1",
+			PhoneNumber:    "+15551234567",
 			Body:           "message1",
 			EventType:      "RECEIVED",
 			SmsTimestamp:   time.Now().Unix(),
@@ -191,7 +191,7 @@ func TestGetSMSMessages(t *testing.T) {
 		},
 		{
 			UserID:         "test-user",
-			PhoneNumber:    "sender2",
+			PhoneNumber:    "+15557654321",
 			Body:           "message2",
 			EventType:      "RECEIVED",
 			SmsTimestamp:   time.Now().Unix(),
@@ -221,7 +221,7 @@ func TestGetSMSMessages(t *testing.T) {
 			path:           "/api/sms/get",
 			method:         http.MethodGet,
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   `{"error":"User ID is required"}`,
+			expectedBody:   `{"error":"user ID is required"}`,
 			setupMock:      func() {},
 		},
 		{
@@ -229,7 +229,7 @@ func TestGetSMSMessages(t *testing.T) {
 			path:           "/api/sms/get?user_id=test-user&limit=-1",
 			method:         http.MethodGet,
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   `{"error":"Invalid limit value"}`,
+			expectedBody:   `{"error":"invalid limit value"}`,
 			setupMock:      func() {},
 		},
 		{
@@ -237,7 +237,7 @@ func TestGetSMSMessages(t *testing.T) {
 			path:           "/api/sms/get?user_id=test-user&limit=10&offset=-1",
 			method:         http.MethodGet,
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   `{"error":"Invalid offset value"}`,
+			expectedBody:   `{"error":"invalid offset value"}`,
 			setupMock:      func() {},
 		},
 		{
@@ -245,7 +245,7 @@ func TestGetSMSMessages(t *testing.T) {
 			path:           "/api/sms/get?user_id=test-user",
 			method:         http.MethodPost,
 			expectedStatus: http.StatusMethodNotAllowed,
-			expectedBody:   `{"error":"Method not allowed"}`,
+			expectedBody:   `{"error":"method not allowed"}`,
 			setupMock:      func() {},
 		},
 	}
