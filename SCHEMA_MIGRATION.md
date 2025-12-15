@@ -26,12 +26,10 @@
 
 ## Remaining Work
 
-### Router Tests (Known Issue)
-- ❌ Router tests in `router/router_test.go` still need updating (many test cases)
-- These tests currently have compilation errors due to old schema field names (`From`, `Timestamp`)
-- These are test files and don't affect production functionality
-- The core server builds and runs correctly
-- Can be updated individually as needed or during next maintenance cycle
+### Router Tests
+- ✅ Router tests in `router/router_test.go` have been updated
+- ✅ Router tests in `router/sms_handler_test.go` have been updated
+- ✅ All tests are passing with the new schema field names (`PhoneNumber`, `SmsTimestamp`)
 
 ## Migration Notes
 
