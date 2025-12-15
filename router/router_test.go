@@ -26,7 +26,7 @@ func TestRouter(t *testing.T) {
 	// Test adding a message
 	msg := &db.SMSMessage{
 		UserID:         "test-user",
-		PhoneNumber:    "1234567890",
+		PhoneNumber:    "+1234567890",
 		Body:           "Test message",
 		EventType:      "RECEIVED",
 		SmsTimestamp:   time.Now().Unix(),
@@ -124,7 +124,7 @@ func TestAddMessage(t *testing.T) {
 			name: "Valid message",
 			message: &db.SMSMessage{
 				UserID:         "123",
-				PhoneNumber:    "sender1",
+				PhoneNumber:    "+15551234567",
 				Body:           "test message",
 				EventType:      "RECEIVED",
 				SmsTimestamp:   time.Now().Unix(),
@@ -136,7 +136,7 @@ func TestAddMessage(t *testing.T) {
 			name: "Empty body",
 			message: &db.SMSMessage{
 				UserID:         "123",
-				PhoneNumber:    "sender1",
+				PhoneNumber:    "+15551234567",
 				Body:           "",
 				EventType:      "RECEIVED",
 				SmsTimestamp:   time.Now().Unix(),
@@ -148,20 +148,20 @@ func TestAddMessage(t *testing.T) {
 		{
 			name: "Missing user ID",
 			message: &db.SMSMessage{
-				PhoneNumber:    "sender1",
+				PhoneNumber:    "+15551234567",
 				Body:           "test message",
 				EventType:      "RECEIVED",
 				SmsTimestamp:   time.Now().Unix(),
 				EventTimestamp: time.Now().Unix(),
 			},
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   `{"error":"User ID is required"}`,
+			expectedBody:   `{"error":"user ID is required"}`,
 		},
 		{
 			name: "Database error",
 			message: &db.SMSMessage{
 				UserID:         "123",
-				PhoneNumber:    "sender1",
+				PhoneNumber:    "+15551234567",
 				Body:           "test message",
 				EventType:      "RECEIVED",
 				SmsTimestamp:   time.Now().Unix(),
@@ -169,7 +169,7 @@ func TestAddMessage(t *testing.T) {
 			},
 			mockError:      errors.New("database error"),
 			expectedStatus: http.StatusInternalServerError,
-			expectedBody:   `{"error":"Failed to save message"}`,
+			expectedBody:   `{"error":"failed to save message"}`,
 		},
 	}
 
@@ -220,7 +220,7 @@ func TestGetMessages(t *testing.T) {
 			mockMessages: []*db.SMSMessage{
 				{
 					UserID:         "123",
-					PhoneNumber:    "sender1",
+					PhoneNumber:    "+15551234567",
 					Body:           "test message 1",
 					EventType:      "RECEIVED",
 					SmsTimestamp:   time.Now().Unix(),
@@ -228,7 +228,7 @@ func TestGetMessages(t *testing.T) {
 				},
 				{
 					UserID:         "123",
-					PhoneNumber:    "sender2",
+					PhoneNumber:    "+15557654321",
 					Body:           "test message 2",
 					EventType:      "RECEIVED",
 					SmsTimestamp:   time.Now().Unix(),
@@ -243,7 +243,7 @@ func TestGetMessages(t *testing.T) {
 			limit:          "invalid",
 			offset:         "0",
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   `{"error":"Invalid limit value"}`,
+			expectedBody:   `{"error":"invalid limit value"}`,
 		},
 		{
 			name:           "Invalid offset",
@@ -251,7 +251,7 @@ func TestGetMessages(t *testing.T) {
 			limit:          "10",
 			offset:         "invalid",
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   `{"error":"Invalid offset value"}`,
+			expectedBody:   `{"error":"invalid offset value"}`,
 		},
 		{
 			name:           "Database error",
@@ -260,7 +260,7 @@ func TestGetMessages(t *testing.T) {
 			offset:         "0",
 			mockError:      errors.New("database error"),
 			expectedStatus: http.StatusInternalServerError,
-			expectedBody:   `{"error":"Failed to get messages"}`,
+			expectedBody:   `{"error":"failed to get messages"}`,
 		},
 		{
 			name:           "Empty messages list",
@@ -279,7 +279,7 @@ func TestGetMessages(t *testing.T) {
 			mockMessages: []*db.SMSMessage{
 				{
 					UserID:         "123",
-					PhoneNumber:    "sender1",
+					PhoneNumber:    "+15551234567",
 					Body:           "test message",
 					EventType:      "RECEIVED",
 					SmsTimestamp:   time.Now().Unix(),
@@ -305,7 +305,7 @@ func TestGetMessages(t *testing.T) {
 			mockMessages: []*db.SMSMessage{
 				{
 					UserID:         "user@123!",
-					PhoneNumber:    "sender1",
+					PhoneNumber:    "+15551234567",
 					Body:           "test message",
 					EventType:      "RECEIVED",
 					SmsTimestamp:   time.Now().Unix(),
@@ -322,7 +322,7 @@ func TestGetMessages(t *testing.T) {
 			mockMessages: []*db.SMSMessage{
 				{
 					UserID:         "123",
-					PhoneNumber:    "sender2",
+					PhoneNumber:    "+15557654321",
 					Body:           "test message 2",
 					EventType:      "RECEIVED",
 					SmsTimestamp:   time.Now().Unix(),
@@ -330,7 +330,7 @@ func TestGetMessages(t *testing.T) {
 				},
 				{
 					UserID:         "123",
-					PhoneNumber:    "sender3",
+					PhoneNumber:    "+15559988776",
 					Body:           "test message 3",
 					EventType:      "RECEIVED",
 					SmsTimestamp:   time.Now().Unix(),
@@ -347,7 +347,7 @@ func TestGetMessages(t *testing.T) {
 			mockMessages: []*db.SMSMessage{
 				{
 					UserID:         "123",
-					PhoneNumber:    "sender1",
+					PhoneNumber:    "+15551234567",
 					Body:           "old message",
 					EventType:      "RECEIVED",
 					SmsTimestamp:   time.Now().Add(-24 * time.Hour).Unix(),
@@ -355,7 +355,7 @@ func TestGetMessages(t *testing.T) {
 				},
 				{
 					UserID:         "123",
-					PhoneNumber:    "sender2",
+					PhoneNumber:    "+15557654321",
 					Body:           "new message",
 					EventType:      "RECEIVED",
 					SmsTimestamp:   time.Now().Unix(),
@@ -533,14 +533,14 @@ func TestNotFound(t *testing.T) {
 			method:         http.MethodGet,
 			path:           "/nonexistent",
 			expectedStatus: http.StatusNotFound,
-			expectedBody:   `{"error":"Not found"}`,
+			expectedBody:   `{"error":"not found"}`,
 		},
 		{
 			name:           "Not found with trailing slash",
 			method:         http.MethodGet,
 			path:           "/nonexistent/",
 			expectedStatus: http.StatusNotFound,
-			expectedBody:   `{"error":"Not found"}`,
+			expectedBody:   `{"error":"not found"}`,
 		},
 		{
 			name:           "Not found with query parameters",
@@ -548,7 +548,7 @@ func TestNotFound(t *testing.T) {
 			path:           "/nonexistent",
 			queryParams:    map[string]string{"param": "value"},
 			expectedStatus: http.StatusNotFound,
-			expectedBody:   `{"error":"Not found"}`,
+			expectedBody:   `{"error":"not found"}`,
 		},
 		{
 			name:           "Not found with custom headers",
@@ -556,7 +556,7 @@ func TestNotFound(t *testing.T) {
 			path:           "/nonexistent",
 			headers:        map[string]string{"X-Custom-Header": "test"},
 			expectedStatus: http.StatusNotFound,
-			expectedBody:   `{"error":"Not found"}`,
+			expectedBody:   `{"error":"not found"}`,
 		},
 		{
 			name:           "Not found with invalid content type",
@@ -564,7 +564,7 @@ func TestNotFound(t *testing.T) {
 			path:           "/nonexistent",
 			headers:        map[string]string{"Content-Type": "invalid"},
 			expectedStatus: http.StatusNotFound,
-			expectedBody:   `{"error":"Not found"}`,
+			expectedBody:   `{"error":"not found"}`,
 		},
 		{
 			name:           "Not found with multiple query parameters",
@@ -572,14 +572,14 @@ func TestNotFound(t *testing.T) {
 			path:           "/nonexistent",
 			queryParams:    map[string]string{"param1": "value1", "param2": "value2"},
 			expectedStatus: http.StatusNotFound,
-			expectedBody:   `{"error":"Not found"}`,
+			expectedBody:   `{"error":"not found"}`,
 		},
 		{
 			name:           "Not found with special characters in path",
 			method:         http.MethodGet,
 			path:           "/nonexistent@123!",
 			expectedStatus: http.StatusNotFound,
-			expectedBody:   `{"error":"Not found"}`,
+			expectedBody:   `{"error":"not found"}`,
 		},
 		{
 			name:           "Not found with empty query parameters",
@@ -587,7 +587,7 @@ func TestNotFound(t *testing.T) {
 			path:           "/nonexistent",
 			queryParams:    map[string]string{"": ""},
 			expectedStatus: http.StatusNotFound,
-			expectedBody:   `{"error":"Not found"}`,
+			expectedBody:   `{"error":"not found"}`,
 		},
 		{
 			name:           "Not found with multiple headers",
@@ -595,7 +595,7 @@ func TestNotFound(t *testing.T) {
 			path:           "/nonexistent",
 			headers:        map[string]string{"X-Header1": "value1", "X-Header2": "value2"},
 			expectedStatus: http.StatusNotFound,
-			expectedBody:   `{"error":"Not found"}`,
+			expectedBody:   `{"error":"not found"}`,
 		},
 		{
 			name:           "Not found with empty headers",
@@ -603,7 +603,7 @@ func TestNotFound(t *testing.T) {
 			path:           "/nonexistent",
 			headers:        map[string]string{"": ""},
 			expectedStatus: http.StatusNotFound,
-			expectedBody:   `{"error":"Not found"}`,
+			expectedBody:   `{"error":"not found"}`,
 		},
 	}
 
@@ -651,16 +651,16 @@ func TestMethodNotAllowed(t *testing.T) {
 		expectedStatus int
 		expectedBody   string
 	}{
-		{"GET /api/sms/add", http.MethodGet, "/api/sms/add", nil, nil, http.StatusMethodNotAllowed, `{"error":"Method not allowed"}`},
-		{"PUT /api/sms/add", http.MethodPut, "/api/sms/add", nil, nil, http.StatusMethodNotAllowed, `{"error":"Method not allowed"}`},
-		{"DELETE /api/sms/add", http.MethodDelete, "/api/sms/add", nil, nil, http.StatusMethodNotAllowed, `{"error":"Method not allowed"}`},
-		{"POST /api/sms/get", http.MethodPost, "/api/sms/get", nil, nil, http.StatusMethodNotAllowed, `{"error":"Method not allowed"}`},
-		{"PUT /api/sms/get", http.MethodPut, "/api/sms/get", nil, nil, http.StatusMethodNotAllowed, `{"error":"Method not allowed"}`},
-		{"DELETE /api/sms/get", http.MethodDelete, "/api/sms/get", nil, nil, http.StatusMethodNotAllowed, `{"error":"Method not allowed"}`},
-		{"PATCH /api/sms/add", http.MethodPatch, "/api/sms/add", nil, nil, http.StatusMethodNotAllowed, `{"error":"Method not allowed"}`},
-		{"HEAD /api/sms/add", http.MethodHead, "/api/sms/add", nil, nil, http.StatusMethodNotAllowed, `{"error":"Method not allowed"}`},
-		{"OPTIONS /api/sms/add", http.MethodOptions, "/api/sms/add", nil, nil, http.StatusMethodNotAllowed, `{"error":"Method not allowed"}`},
-		{"CONNECT /api/sms/add", http.MethodConnect, "/api/sms/add", nil, nil, http.StatusMethodNotAllowed, `{"error":"Method not allowed"}`},
+		{"GET /api/sms/add", http.MethodGet, "/api/sms/add", nil, nil, http.StatusMethodNotAllowed, `{"error":"method not allowed"}`},
+		{"PUT /api/sms/add", http.MethodPut, "/api/sms/add", nil, nil, http.StatusMethodNotAllowed, `{"error":"method not allowed"}`},
+		{"DELETE /api/sms/add", http.MethodDelete, "/api/sms/add", nil, nil, http.StatusMethodNotAllowed, `{"error":"method not allowed"}`},
+		{"POST /api/sms/get", http.MethodPost, "/api/sms/get", nil, nil, http.StatusMethodNotAllowed, `{"error":"method not allowed"}`},
+		{"PUT /api/sms/get", http.MethodPut, "/api/sms/get", nil, nil, http.StatusMethodNotAllowed, `{"error":"method not allowed"}`},
+		{"DELETE /api/sms/get", http.MethodDelete, "/api/sms/get", nil, nil, http.StatusMethodNotAllowed, `{"error":"method not allowed"}`},
+		{"PATCH /api/sms/add", http.MethodPatch, "/api/sms/add", nil, nil, http.StatusMethodNotAllowed, `{"error":"method not allowed"}`},
+		{"HEAD /api/sms/add", http.MethodHead, "/api/sms/add", nil, nil, http.StatusMethodNotAllowed, `{"error":"method not allowed"}`},
+
+		{"CONNECT /api/sms/add", http.MethodConnect, "/api/sms/add", nil, nil, http.StatusMethodNotAllowed, `{"error":"method not allowed"}`},
 	}
 
 	for _, tt := range tests {
@@ -860,7 +860,7 @@ func TestValidateMessage(t *testing.T) {
 			name: "Valid message",
 			message: &db.SMSMessage{
 				UserID:         "123",
-				PhoneNumber:    "sender1",
+				PhoneNumber:    "+15551234567",
 				Body:           "test message",
 				EventType:      "RECEIVED",
 				SmsTimestamp:   time.Now().Unix(),
@@ -871,13 +871,13 @@ func TestValidateMessage(t *testing.T) {
 		{
 			name: "Missing UserID",
 			message: &db.SMSMessage{
-				PhoneNumber:    "sender1",
+				PhoneNumber:    "+15551234567",
 				Body:           "test message",
 				EventType:      "RECEIVED",
 				SmsTimestamp:   time.Now().Unix(),
 				EventTimestamp: time.Now().Unix(),
 			},
-			expectedError: "User ID is required",
+			expectedError: "user ID is required",
 		},
 		{
 			name: "Missing PhoneNumber",
@@ -894,7 +894,7 @@ func TestValidateMessage(t *testing.T) {
 			name: "Empty body",
 			message: &db.SMSMessage{
 				UserID:         "123",
-				PhoneNumber:    "sender1",
+				PhoneNumber:    "+15551234567",
 				Body:           "",
 				EventType:      "RECEIVED",
 				SmsTimestamp:   time.Now().Unix(),
@@ -906,13 +906,13 @@ func TestValidateMessage(t *testing.T) {
 			name: "Empty UserID",
 			message: &db.SMSMessage{
 				UserID:         "",
-				PhoneNumber:    "sender1",
+				PhoneNumber:    "+15551234567",
 				Body:           "test message",
 				EventType:      "RECEIVED",
 				SmsTimestamp:   time.Now().Unix(),
 				EventTimestamp: time.Now().Unix(),
 			},
-			expectedError: "User ID is required",
+			expectedError: "user ID is required",
 		},
 		{
 			name: "Empty PhoneNumber",
@@ -930,7 +930,7 @@ func TestValidateMessage(t *testing.T) {
 			name: "Missing EventType",
 			message: &db.SMSMessage{
 				UserID:         "123",
-				PhoneNumber:    "sender1",
+				PhoneNumber:    "+15551234567",
 				Body:           "test message",
 				SmsTimestamp:   time.Now().Unix(),
 				EventTimestamp: time.Now().Unix(),
@@ -941,7 +941,7 @@ func TestValidateMessage(t *testing.T) {
 			name: "Special characters in UserID",
 			message: &db.SMSMessage{
 				UserID:         "user@123!",
-				PhoneNumber:    "sender1",
+				PhoneNumber:    "+15551234567",
 				Body:           "test message",
 				EventType:      "RECEIVED",
 				SmsTimestamp:   time.Now().Unix(),
@@ -950,7 +950,7 @@ func TestValidateMessage(t *testing.T) {
 			expectedError: "",
 		},
 		{
-			name: "Special characters in PhoneNumber",
+			name: "Invalid phone number format",
 			message: &db.SMSMessage{
 				UserID:         "123",
 				PhoneNumber:    "sender@123!",
@@ -959,13 +959,13 @@ func TestValidateMessage(t *testing.T) {
 				SmsTimestamp:   time.Now().Unix(),
 				EventTimestamp: time.Now().Unix(),
 			},
-			expectedError: "",
+			expectedError: "invalid phone number format",
 		},
 		{
 			name: "Long message body",
 			message: &db.SMSMessage{
 				UserID:         "123",
-				PhoneNumber:    "sender1",
+				PhoneNumber:    "+15551234567",
 				Body:           strings.Repeat("a", 1000),
 				EventType:      "RECEIVED",
 				SmsTimestamp:   time.Now().Unix(),
