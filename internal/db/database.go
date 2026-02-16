@@ -5,11 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"sms-sync-server/pkg/logger"
 
+	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type SMSMessage struct {
@@ -347,4 +350,153 @@ func (d *Database) GetMessages(userID string, limit, offset int) ([]*SMSMessage,
 	}
 
 	return messages, nil
+}
+
+// SeedDatabase populates the database with default data (admin user, permissions, groups)
+func (d *Database) SeedDatabase(adminPassword string) error {
+	logger.Info("Starting database seeding")
+
+	// Check if seeding is needed (no users exist)
+	var userCount int
+	err := d.db.QueryRow("SELECT COUNT(*) FROM users").Scan(&userCount)
+	if err != nil {
+		return fmt.Errorf("failed to check user count: %w", err)
+	}
+
+	if userCount > 0 {
+		logger.Info("Database already seeded, skipping", zap.Int("user_count", userCount))
+		return nil
+	}
+
+	// Start a transaction for atomic seeding
+	tx, err := d.db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			if rbErr := tx.Rollback(); rbErr != nil {
+				logger.Error("Failed to rollback transaction", zap.Error(rbErr))
+			}
+		}
+	}()
+
+	// Hash admin password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(adminPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("failed to hash admin password: %w", err)
+	}
+
+	now := time.Now().Unix()
+
+	// Create default permissions
+	permissions := []struct {
+		name        string
+		resource    string
+		action      string
+		description string
+	}{
+		{"sms:read", "sms", "read", "Read SMS messages"},
+		{"sms:write", "sms", "write", "Create and update SMS messages"},
+		{"sms:delete", "sms", "delete", "Delete SMS messages"},
+		{"users:read", "users", "read", "View user information"},
+		{"users:write", "users", "write", "Create and update users"},
+		{"users:delete", "users", "delete", "Delete users"},
+		{"groups:manage", "groups", "manage", "Manage user groups"},
+		{"permissions:manage", "permissions", "manage", "Manage permissions"},
+	}
+
+	permissionIDs := make(map[string]string)
+	for _, perm := range permissions {
+		permID := uuid.New().String()
+		_, err := tx.Exec(`
+			INSERT INTO permissions (id, name, resource, action, description, active, created_at)
+			VALUES (?, ?, ?, ?, ?, 1, ?)`,
+			permID, perm.name, perm.resource, perm.action, perm.description, now)
+		if err != nil {
+			return fmt.Errorf("failed to create permission %s: %w", perm.name, err)
+		}
+		permissionIDs[perm.name] = permID
+		logger.Debug("Created permission", zap.String("name", perm.name), zap.String("id", permID))
+	}
+
+	// Create default groups
+	groups := []struct {
+		name        string
+		description string
+		permissions []string
+	}{
+		{
+			"Administrators",
+			"Full system access",
+			[]string{"sms:read", "sms:write", "sms:delete", "users:read", "users:write", "users:delete", "groups:manage", "permissions:manage"},
+		},
+		{
+			"Users",
+			"Basic SMS access",
+			[]string{"sms:read", "sms:write"},
+		},
+	}
+
+	groupIDs := make(map[string]string)
+	for _, group := range groups {
+		groupID := uuid.New().String()
+		_, err := tx.Exec(`
+			INSERT INTO groups (id, name, description, active, created_at, updated_at)
+			VALUES (?, ?, ?, 1, ?, ?)`,
+			groupID, group.name, group.description, now, now)
+		if err != nil {
+			return fmt.Errorf("failed to create group %s: %w", group.name, err)
+		}
+		groupIDs[group.name] = groupID
+		logger.Debug("Created group", zap.String("name", group.name), zap.String("id", groupID))
+
+		// Assign permissions to group
+		for _, permName := range group.permissions {
+			permID, ok := permissionIDs[permName]
+			if !ok {
+				return fmt.Errorf("permission %s not found", permName)
+			}
+			_, err := tx.Exec(`
+				INSERT INTO group_permissions (group_id, permission_id, assigned_at)
+				VALUES (?, ?, ?)`,
+				groupID, permID, now)
+			if err != nil {
+				return fmt.Errorf("failed to assign permission %s to group %s: %w", permName, group.name, err)
+			}
+		}
+	}
+
+	// Create admin user
+	adminUserID := uuid.New().String()
+	_, err = tx.Exec(`
+		INSERT INTO users (id, username, email, password_hash, active, created_at, updated_at)
+		VALUES (?, ?, ?, ?, 1, ?, ?)`,
+		adminUserID, "admin", "admin@localhost", string(hashedPassword), now, now)
+	if err != nil {
+		return fmt.Errorf("failed to create admin user: %w", err)
+	}
+	logger.Debug("Created admin user", zap.String("id", adminUserID))
+
+	// Assign Administrators group to admin user
+	adminGroupID := groupIDs["Administrators"]
+	_, err = tx.Exec(`
+		INSERT INTO user_groups (user_id, group_id, assigned_at)
+		VALUES (?, ?, ?)`,
+		adminUserID, adminGroupID, now)
+	if err != nil {
+		return fmt.Errorf("failed to assign Administrators group to admin user: %w", err)
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	logger.Info("Database seeding completed successfully",
+		zap.Int("permissions", len(permissions)),
+		zap.Int("groups", len(groups)),
+		zap.String("admin_user", "admin"))
+
+	return nil
 }

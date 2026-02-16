@@ -37,6 +37,13 @@ func SetupServer(cfg *config.Config) (*http.Server, error) {
 		return nil, fmt.Errorf("failed to initialize database: %w", err)
 	}
 
+	// Seed database if enabled
+	if cfg.Seed.Enable {
+		if err := database.SeedDatabase(cfg.Seed.AdminPassword); err != nil {
+			return nil, fmt.Errorf("failed to seed database: %w", err)
+		}
+	}
+
 	// Initialize SMS service
 	smsService := services.NewSMSService(database)
 
