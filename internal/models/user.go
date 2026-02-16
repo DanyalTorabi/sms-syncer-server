@@ -30,7 +30,8 @@ type User struct {
 type CreateUserRequest struct {
 	Username string `json:"username" binding:"required,min=3,max=50"`
 	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=8"` // Plain password - will be hashed
+	// #nosec G117 - Input struct for receiving plain password, will be hashed before storage
+	Password string `json:"password" binding:"required,min=8"`
 }
 
 // UpdateUserRequest represents the request body for updating an existing user
