@@ -107,6 +107,18 @@ lint-fix:
 	@echo "Auto-fixing linting issues..."
 	golangci-lint run --fix
 
+# Run security scanner
+.PHONY: security
+security:
+	@echo "Running security scanner (gosec)..."
+	@if command -v gosec >/dev/null 2>&1; then \
+		gosec ./...; \
+	else \
+		echo "Error: gosec is not installed"; \
+		echo "Install with: go install github.com/securego/gosec/v2/cmd/gosec@latest"; \
+		exit 1; \
+	fi
+
 # Setup git hooks for pre-commit linting
 .PHONY: setup-hooks
 setup-hooks:
