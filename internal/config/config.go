@@ -22,6 +22,7 @@ type Config struct {
 		DSN string `json:"dsn"`
 	} `json:"database"`
 	JWT struct {
+		// #nosec G117 - Config loading only, never marshaled in responses
 		Secret      string        `json:"secret"`
 		TokenExpiry time.Duration `json:"token_expiry"`
 	} `json:"jwt"`

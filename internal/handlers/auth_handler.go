@@ -13,6 +13,7 @@ import (
 
 type LoginRequest struct {
 	Username string `json:"username"`
+	// #nosec G117 - Input struct for receiving credentials, not exposing secrets
 	Password string `json:"password"`
 }
 

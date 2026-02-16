@@ -87,6 +87,15 @@ else
     print_success "golangci-lint is already installed: $(golangci-lint version)"
 fi
 
+# Check if gosec is installed
+if ! command -v gosec &> /dev/null; then
+    print_warning "gosec is not installed (security scanning will be skipped in pre-commit)"
+    print_info "To enable security scanning, install gosec:"
+    print_info "  go install github.com/securego/gosec/v2/cmd/gosec@latest"
+else
+    print_success "gosec is already installed: $(gosec --version 2>&1 | head -n1)"
+fi
+
 # Create pre-commit hook
 PRE_COMMIT_HOOK=".git/hooks/pre-commit"
 
@@ -212,6 +221,23 @@ if ! golangci-lint run --timeout=5m --issues-exit-code=1; then
 fi
 print_success "golangci-lint check passed"
 
+# Run gosec security scanner
+print_info "Running gosec security scanner..."
+if ! command -v gosec &> /dev/null; then
+    print_warning "gosec is not installed, skipping security scan"
+    print_info "To enable security scanning, install gosec:"
+    print_info "  go install github.com/securego/gosec/v2/cmd/gosec@latest"
+else
+    if ! gosec -quiet ./...; then
+        print_error "gosec found security issues"
+        print_info "Please review and fix the security issues before committing"
+        print_info "Use #nosec directive with justification for false positives"
+        print_info "Or use 'git commit --no-verify' to bypass (not recommended)"
+        exit 1
+    fi
+    print_success "gosec security scan passed"
+fi
+
 # Check if go.mod and go.sum are properly maintained
 if git diff --cached --name-only | grep -q "go.mod\|go.sum"; then
     print_info "go.mod or go.sum changed, verifying dependencies..."
@@ -245,6 +271,7 @@ print_info "It will check for:"
 print_info "  - Go formatting (gofmt)"
 print_info "  - Go vet issues"
 print_info "  - Linting issues (golangci-lint)"
+print_info "  - Security issues (gosec)"
 print_info "  - Go module integrity"
 echo ""
 print_info "To bypass the hook in emergency situations, use:"
