@@ -51,6 +51,14 @@ func NewDatabase(dbPath string) (*Database, error) {
 		return nil, err
 	}
 
+	// Enable foreign key constraints for SQLite
+	if _, err := db.Exec("PRAGMA foreign_keys = ON;"); err != nil {
+		if closeErr := db.Close(); closeErr != nil {
+			return nil, fmt.Errorf("enable foreign keys failed: %w, close failed: %v", err, closeErr)
+		}
+		return nil, fmt.Errorf("enable foreign keys failed: %w", err)
+	}
+
 	// Verify we can actually connect to the database
 	if err := db.Ping(); err != nil {
 		if closeErr := db.Close(); closeErr != nil {
@@ -71,6 +79,26 @@ func NewDatabase(dbPath string) (*Database, error) {
 }
 
 func createTables(db *sql.DB) error {
+	// Create all base tables
+	if err := createBaseTables(db); err != nil {
+		return err
+	}
+
+	// Create junction tables
+	if err := createJunctionTables(db); err != nil {
+		return err
+	}
+
+	// Create all indexes
+	if err := createIndexes(db); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func createBaseTables(db *sql.DB) error {
+	// Create messages table (existing)
 	_, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS messages (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -86,7 +114,121 @@ func createTables(db *sql.DB) error {
 			person TEXT
 		)
 	`)
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to create messages table: %w", err)
+	}
+
+	// Create users table
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS users (
+			id TEXT PRIMARY KEY,
+			username TEXT UNIQUE NOT NULL,
+			email TEXT NOT NULL,
+			password_hash TEXT NOT NULL,
+			totp_secret TEXT,
+			totp_enabled BOOLEAN DEFAULT 0,
+			active BOOLEAN DEFAULT 1,
+			failed_login_attempts INTEGER DEFAULT 0,
+			locked_until INTEGER,
+			last_login INTEGER,
+			created_at INTEGER NOT NULL,
+			updated_at INTEGER NOT NULL
+		)
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to create users table: %w", err)
+	}
+
+	// Create groups table
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS groups (
+			id TEXT PRIMARY KEY,
+			name TEXT UNIQUE NOT NULL,
+			description TEXT,
+			active BOOLEAN DEFAULT 1,
+			created_at INTEGER NOT NULL,
+			updated_at INTEGER NOT NULL
+		)
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to create groups table: %w", err)
+	}
+
+	// Create permissions table
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS permissions (
+			id TEXT PRIMARY KEY,
+			name TEXT UNIQUE NOT NULL,
+			resource TEXT NOT NULL,
+			action TEXT NOT NULL,
+			description TEXT,
+			active BOOLEAN DEFAULT 1,
+			created_at INTEGER NOT NULL
+		)
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to create permissions table: %w", err)
+	}
+
+	return nil
+}
+
+func createJunctionTables(db *sql.DB) error {
+	// Create user_groups junction table
+	_, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS user_groups (
+			user_id TEXT NOT NULL,
+			group_id TEXT NOT NULL,
+			assigned_at INTEGER NOT NULL,
+			PRIMARY KEY (user_id, group_id),
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+			FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE
+		)
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to create user_groups table: %w", err)
+	}
+
+	// Create group_permissions junction table
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS group_permissions (
+			group_id TEXT NOT NULL,
+			permission_id TEXT NOT NULL,
+			assigned_at INTEGER NOT NULL,
+			PRIMARY KEY (group_id, permission_id),
+			FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+			FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE
+		)
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to create group_permissions table: %w", err)
+	}
+
+	return nil
+}
+
+func createIndexes(db *sql.DB) error {
+	indexes := []struct {
+		name string
+		sql  string
+	}{
+		{"idx_users_username", "CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)"},
+		{"idx_users_email", "CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)"},
+		{"idx_groups_name", "CREATE INDEX IF NOT EXISTS idx_groups_name ON groups(name)"},
+		{"idx_permissions_name", "CREATE INDEX IF NOT EXISTS idx_permissions_name ON permissions(name)"},
+		{"idx_user_groups_user_id", "CREATE INDEX IF NOT EXISTS idx_user_groups_user_id ON user_groups(user_id)"},
+		{"idx_user_groups_group_id", "CREATE INDEX IF NOT EXISTS idx_user_groups_group_id ON user_groups(group_id)"},
+		{"idx_group_permissions_group_id", "CREATE INDEX IF NOT EXISTS idx_group_permissions_group_id ON group_permissions(group_id)"},
+		{"idx_group_permissions_permission_id", "CREATE INDEX IF NOT EXISTS idx_group_permissions_permission_id ON group_permissions(permission_id)"},
+	}
+
+	for _, idx := range indexes {
+		if _, err := db.Exec(idx.sql); err != nil {
+			return fmt.Errorf("failed to create %s: %w", idx.name, err)
+		}
+	}
+
+	return nil
 }
 
 func (d *Database) Close() error {

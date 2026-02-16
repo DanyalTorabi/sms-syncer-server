@@ -483,3 +483,399 @@ func TestDatabase(t *testing.T) {
 		t.Errorf("Expected 0 messages for non-existent user, got %d", len(messages))
 	}
 }
+
+// TestUserManagementTables verifies that all user management tables are created successfully
+func TestUserManagementTables(t *testing.T) {
+	tests := []struct {
+		name      string
+		tableName string
+	}{
+		{"users table exists", "users"},
+		{"groups table exists", "groups"},
+		{"permissions table exists", "permissions"},
+		{"user_groups junction table exists", "user_groups"},
+		{"group_permissions junction table exists", "group_permissions"},
+	}
+
+	db, err := NewDatabase(":memory:")
+	require.NoError(t, err)
+	defer db.Close()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var tableName string
+			query := `SELECT name FROM sqlite_master WHERE type='table' AND name=?`
+			err := db.db.QueryRow(query, tt.tableName).Scan(&tableName)
+			assert.NoError(t, err, "Table %s should exist", tt.tableName)
+			assert.Equal(t, tt.tableName, tableName)
+		})
+	}
+}
+
+// TestUserManagementIndexes verifies that all required indexes are created
+func TestUserManagementIndexes(t *testing.T) {
+	tests := []struct {
+		name      string
+		indexName string
+	}{
+		{"idx_users_username exists", "idx_users_username"},
+		{"idx_users_email exists", "idx_users_email"},
+		{"idx_groups_name exists", "idx_groups_name"},
+		{"idx_permissions_name exists", "idx_permissions_name"},
+		{"idx_user_groups_user_id exists", "idx_user_groups_user_id"},
+		{"idx_user_groups_group_id exists", "idx_user_groups_group_id"},
+		{"idx_group_permissions_group_id exists", "idx_group_permissions_group_id"},
+		{"idx_group_permissions_permission_id exists", "idx_group_permissions_permission_id"},
+	}
+
+	db, err := NewDatabase(":memory:")
+	require.NoError(t, err)
+	defer db.Close()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var indexName string
+			query := `SELECT name FROM sqlite_master WHERE type='index' AND name=?`
+			err := db.db.QueryRow(query, tt.indexName).Scan(&indexName)
+			assert.NoError(t, err, "Index %s should exist", tt.indexName)
+			assert.Equal(t, tt.indexName, indexName)
+		})
+	}
+}
+
+// TestForeignKeyConstraints verifies that foreign key constraints work correctly
+func TestForeignKeyConstraints(t *testing.T) {
+	db, err := NewDatabase(":memory:")
+	require.NoError(t, err)
+	defer db.Close()
+
+	// Verify foreign keys are enabled
+	var fkEnabled int
+	err = db.db.QueryRow("PRAGMA foreign_keys").Scan(&fkEnabled)
+	require.NoError(t, err)
+	assert.Equal(t, 1, fkEnabled, "Foreign keys should be enabled")
+
+	// Test CASCADE delete for user_groups
+	t.Run("user_groups CASCADE on user delete", func(t *testing.T) {
+		userID := "test-user-fk-1"
+		groupID := "test-group-fk-1"
+		now := time.Now().Unix()
+
+		// Insert user
+		_, err := db.db.Exec(`INSERT INTO users (id, username, email, password_hash, created_at, updated_at) 
+			VALUES (?, ?, ?, ?, ?, ?)`, userID, "testuser", "test@example.com", "hash", now, now)
+		require.NoError(t, err)
+
+		// Insert group
+		_, err = db.db.Exec(`INSERT INTO groups (id, name, created_at, updated_at) 
+			VALUES (?, ?, ?, ?)`, groupID, "testgroup", now, now)
+		require.NoError(t, err)
+
+		// Insert user_group relationship
+		_, err = db.db.Exec(`INSERT INTO user_groups (user_id, group_id, assigned_at) 
+			VALUES (?, ?, ?)`, userID, groupID, now)
+		require.NoError(t, err)
+
+		// Verify relationship exists
+		var count int
+		err = db.db.QueryRow(`SELECT COUNT(*) FROM user_groups WHERE user_id = ?`, userID).Scan(&count)
+		require.NoError(t, err)
+		assert.Equal(t, 1, count)
+
+		// Delete user - should cascade delete user_groups entry
+		_, err = db.db.Exec(`DELETE FROM users WHERE id = ?`, userID)
+		require.NoError(t, err)
+
+		// Verify relationship was deleted
+		err = db.db.QueryRow(`SELECT COUNT(*) FROM user_groups WHERE user_id = ?`, userID).Scan(&count)
+		require.NoError(t, err)
+		assert.Equal(t, 0, count, "user_groups entry should be cascade deleted")
+	})
+
+	// Test CASCADE delete for group_permissions
+	t.Run("group_permissions CASCADE on group delete", func(t *testing.T) {
+		groupID := "test-group-fk-2"
+		permissionID := "test-permission-fk-1"
+		now := time.Now().Unix()
+
+		// Insert group
+		_, err := db.db.Exec(`INSERT INTO groups (id, name, created_at, updated_at) 
+			VALUES (?, ?, ?, ?)`, groupID, "testgroup2", now, now)
+		require.NoError(t, err)
+
+		// Insert permission
+		_, err = db.db.Exec(`INSERT INTO permissions (id, name, resource, action, created_at) 
+			VALUES (?, ?, ?, ?, ?)`, permissionID, "testperm", "sms", "read", now)
+		require.NoError(t, err)
+
+		// Insert group_permission relationship
+		_, err = db.db.Exec(`INSERT INTO group_permissions (group_id, permission_id, assigned_at) 
+			VALUES (?, ?, ?)`, groupID, permissionID, now)
+		require.NoError(t, err)
+
+		// Verify relationship exists
+		var count int
+		err = db.db.QueryRow(`SELECT COUNT(*) FROM group_permissions WHERE group_id = ?`, groupID).Scan(&count)
+		require.NoError(t, err)
+		assert.Equal(t, 1, count)
+
+		// Delete group - should cascade delete group_permissions entry
+		_, err = db.db.Exec(`DELETE FROM groups WHERE id = ?`, groupID)
+		require.NoError(t, err)
+
+		// Verify relationship was deleted
+		err = db.db.QueryRow(`SELECT COUNT(*) FROM group_permissions WHERE group_id = ?`, groupID).Scan(&count)
+		require.NoError(t, err)
+		assert.Equal(t, 0, count, "group_permissions entry should be cascade deleted")
+	})
+
+	// Test foreign key constraint prevents invalid references
+	t.Run("foreign key constraint prevents invalid user_id", func(t *testing.T) {
+		now := time.Now().Unix()
+		// Try to insert user_groups with non-existent user_id
+		_, err := db.db.Exec(`INSERT INTO user_groups (user_id, group_id, assigned_at) 
+			VALUES (?, ?, ?)`, "non-existent-user", "non-existent-group", now)
+		assert.Error(t, err, "Should fail with foreign key constraint violation")
+	})
+}
+
+// TestIdempotentMigration verifies that running migrations multiple times doesn't cause errors
+func TestIdempotentMigration(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_idempotent.db")
+
+	// First migration
+	db1, err := NewDatabase(dbPath)
+	require.NoError(t, err, "First migration should succeed")
+	require.NotNil(t, db1)
+	db1.Close()
+
+	// Second migration on same database
+	db2, err := NewDatabase(dbPath)
+	require.NoError(t, err, "Second migration should succeed (idempotent)")
+	require.NotNil(t, db2)
+	defer db2.Close()
+
+	// Verify tables still exist and are functional
+	var tableName string
+	err = db2.db.QueryRow(`SELECT name FROM sqlite_master WHERE type='table' AND name='users'`).Scan(&tableName)
+	assert.NoError(t, err)
+	assert.Equal(t, "users", tableName)
+
+	// Verify we can insert data
+	now := time.Now().Unix()
+	_, err = db2.db.Exec(`INSERT INTO users (id, username, email, password_hash, created_at, updated_at) 
+		VALUES (?, ?, ?, ?, ?, ?)`, "test-user", "testuser", "test@example.com", "hash", now, now)
+	assert.NoError(t, err, "Should be able to insert data after idempotent migration")
+}
+
+// TestTableSchemas verifies that table schemas match specifications
+func TestTableSchemas(t *testing.T) {
+	db, err := NewDatabase(":memory:")
+	require.NoError(t, err)
+	defer db.Close()
+
+	t.Run("users table schema", func(t *testing.T) {
+		rows, err := db.db.Query(`PRAGMA table_info(users)`)
+		require.NoError(t, err)
+		defer rows.Close()
+
+		expectedColumns := map[string]bool{
+			"id": false, "username": false, "email": false, "password_hash": false,
+			"totp_secret": false, "totp_enabled": false, "active": false,
+			"failed_login_attempts": false, "locked_until": false, "last_login": false,
+			"created_at": false, "updated_at": false,
+		}
+
+		for rows.Next() {
+			var cid int
+			var name, colType string
+			var notNull, pk int
+			var dfltValue sql.NullString
+			err := rows.Scan(&cid, &name, &colType, &notNull, &dfltValue, &pk)
+			require.NoError(t, err)
+			if _, exists := expectedColumns[name]; exists {
+				expectedColumns[name] = true
+			}
+		}
+
+		for col, found := range expectedColumns {
+			assert.True(t, found, "Column %s should exist in users table", col)
+		}
+	})
+
+	t.Run("groups table schema", func(t *testing.T) {
+		rows, err := db.db.Query(`PRAGMA table_info(groups)`)
+		require.NoError(t, err)
+		defer rows.Close()
+
+		expectedColumns := map[string]bool{
+			"id": false, "name": false, "description": false,
+			"active": false, "created_at": false, "updated_at": false,
+		}
+
+		for rows.Next() {
+			var cid int
+			var name, colType string
+			var notNull, pk int
+			var dfltValue sql.NullString
+			err := rows.Scan(&cid, &name, &colType, &notNull, &dfltValue, &pk)
+			require.NoError(t, err)
+			if _, exists := expectedColumns[name]; exists {
+				expectedColumns[name] = true
+			}
+		}
+
+		for col, found := range expectedColumns {
+			assert.True(t, found, "Column %s should exist in groups table", col)
+		}
+	})
+
+	t.Run("permissions table schema", func(t *testing.T) {
+		rows, err := db.db.Query(`PRAGMA table_info(permissions)`)
+		require.NoError(t, err)
+		defer rows.Close()
+
+		expectedColumns := map[string]bool{
+			"id": false, "name": false, "resource": false, "action": false,
+			"description": false, "active": false, "created_at": false,
+		}
+
+		for rows.Next() {
+			var cid int
+			var name, colType string
+			var notNull, pk int
+			var dfltValue sql.NullString
+			err := rows.Scan(&cid, &name, &colType, &notNull, &dfltValue, &pk)
+			require.NoError(t, err)
+			if _, exists := expectedColumns[name]; exists {
+				expectedColumns[name] = true
+			}
+		}
+
+		for col, found := range expectedColumns {
+			assert.True(t, found, "Column %s should exist in permissions table", col)
+		}
+	})
+}
+
+// TestCreateTableErrors verifies error handling in table creation
+func TestCreateTableErrors(t *testing.T) {
+	// Test that NewDatabase handles table creation errors properly
+	// This is tested indirectly through TestNewDatabase_CreateTableError
+	// which verifies the error path when createTables fails
+
+	// Additional test: Verify that createTables is called during NewDatabase
+	db, err := NewDatabase(":memory:")
+	require.NoError(t, err)
+	require.NotNil(t, db)
+	defer db.Close()
+
+	// Verify all tables were created
+	tables := []string{"messages", "users", "groups", "permissions", "user_groups", "group_permissions"}
+	for _, table := range tables {
+		var name string
+		err := db.db.QueryRow(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`, table).Scan(&name)
+		assert.NoError(t, err, "Table %s should be created", table)
+	}
+}
+
+// TestUniqueConstraints verifies that unique constraints work on tables
+func TestUniqueConstraints(t *testing.T) {
+	db, err := NewDatabase(":memory:")
+	require.NoError(t, err)
+	defer db.Close()
+
+	now := time.Now().Unix()
+
+	t.Run("duplicate username should fail", func(t *testing.T) {
+		// Insert first user
+		_, err := db.db.Exec(`INSERT INTO users (id, username, email, password_hash, created_at, updated_at) 
+			VALUES (?, ?, ?, ?, ?, ?)`, "user1", "uniqueuser", "user1@example.com", "hash1", now, now)
+		require.NoError(t, err)
+
+		// Try to insert user with same username
+		_, err = db.db.Exec(`INSERT INTO users (id, username, email, password_hash, created_at, updated_at) 
+			VALUES (?, ?, ?, ?, ?, ?)`, "user2", "uniqueuser", "user2@example.com", "hash2", now, now)
+		assert.Error(t, err, "Should fail with duplicate username")
+	})
+
+	t.Run("duplicate group name should fail", func(t *testing.T) {
+		// Insert first group
+		_, err := db.db.Exec(`INSERT INTO groups (id, name, created_at, updated_at) 
+			VALUES (?, ?, ?, ?)`, "group1", "uniquegroup", now, now)
+		require.NoError(t, err)
+
+		// Try to insert group with same name
+		_, err = db.db.Exec(`INSERT INTO groups (id, name, created_at, updated_at) 
+			VALUES (?, ?, ?, ?)`, "group2", "uniquegroup", now, now)
+		assert.Error(t, err, "Should fail with duplicate group name")
+	})
+
+	t.Run("duplicate permission name should fail", func(t *testing.T) {
+		// Insert first permission
+		_, err := db.db.Exec(`INSERT INTO permissions (id, name, resource, action, created_at) 
+			VALUES (?, ?, ?, ?, ?)`, "perm1", "uniqueperm", "sms", "read", now)
+		require.NoError(t, err)
+
+		// Try to insert permission with same name
+		_, err = db.db.Exec(`INSERT INTO permissions (id, name, resource, action, created_at) 
+			VALUES (?, ?, ?, ?, ?)`, "perm2", "uniqueperm", "users", "write", now)
+		assert.Error(t, err, "Should fail with duplicate permission name")
+	})
+}
+
+// TestDefaultValues verifies that default values are set correctly
+func TestDefaultValues(t *testing.T) {
+	db, err := NewDatabase(":memory:")
+	require.NoError(t, err)
+	defer db.Close()
+
+	now := time.Now().Unix()
+
+	t.Run("user default values", func(t *testing.T) {
+		// Insert user without optional fields
+		_, err := db.db.Exec(`INSERT INTO users (id, username, email, password_hash, created_at, updated_at) 
+			VALUES (?, ?, ?, ?, ?, ?)`, "testuser", "defaultuser", "default@example.com", "hash", now, now)
+		require.NoError(t, err)
+
+		// Retrieve and check defaults
+		var totpEnabled, active bool
+		var failedAttempts int
+		err = db.db.QueryRow(`SELECT totp_enabled, active, failed_login_attempts FROM users WHERE id = ?`,
+			"testuser").Scan(&totpEnabled, &active, &failedAttempts)
+		require.NoError(t, err)
+
+		assert.False(t, totpEnabled, "totp_enabled should default to false")
+		assert.True(t, active, "active should default to true")
+		assert.Equal(t, 0, failedAttempts, "failed_login_attempts should default to 0")
+	})
+
+	t.Run("group default values", func(t *testing.T) {
+		// Insert group without optional fields
+		_, err := db.db.Exec(`INSERT INTO groups (id, name, created_at, updated_at) 
+			VALUES (?, ?, ?, ?)`, "testgroup", "defaultgroup", now, now)
+		require.NoError(t, err)
+
+		// Retrieve and check defaults
+		var active bool
+		err = db.db.QueryRow(`SELECT active FROM groups WHERE id = ?`, "testgroup").Scan(&active)
+		require.NoError(t, err)
+
+		assert.True(t, active, "active should default to true")
+	})
+
+	t.Run("permission default values", func(t *testing.T) {
+		// Insert permission without optional fields
+		_, err := db.db.Exec(`INSERT INTO permissions (id, name, resource, action, created_at) 
+			VALUES (?, ?, ?, ?, ?)`, "testperm", "defaultperm", "sms", "read", now)
+		require.NoError(t, err)
+
+		// Retrieve and check defaults
+		var active bool
+		err = db.db.QueryRow(`SELECT active FROM permissions WHERE id = ?`, "testperm").Scan(&active)
+		require.NoError(t, err)
+
+		assert.True(t, active, "active should default to true")
+	})
+}
