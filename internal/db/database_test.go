@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func TestNewDatabase(t *testing.T) {
@@ -877,5 +878,203 @@ func TestDefaultValues(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.True(t, active, "active should default to true")
+	})
+}
+
+// TestSeedDatabase tests the database seeding functionality
+func TestSeedDatabase(t *testing.T) {
+	t.Run("successful seeding", func(t *testing.T) {
+		db, err := NewDatabase(":memory:")
+		require.NoError(t, err)
+		defer db.Close()
+
+		// Seed the database
+		err = db.SeedDatabase("testpassword123")
+		require.NoError(t, err)
+
+		// Verify admin user was created
+		var username, email, passwordHash string
+		var active bool
+		err = db.db.QueryRow(`
+			SELECT username, email, password_hash, active 
+			FROM users WHERE username = ?`, "admin").
+			Scan(&username, &email, &passwordHash, &active)
+		require.NoError(t, err)
+		assert.Equal(t, "admin", username)
+		assert.Equal(t, "admin@localhost", email)
+		assert.True(t, active)
+
+		// Verify password is properly hashed
+		err = bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte("testpassword123"))
+		assert.NoError(t, err, "password should be correctly hashed")
+
+		// Verify 8 permissions were created
+		var permCount int
+		err = db.db.QueryRow("SELECT COUNT(*) FROM permissions").Scan(&permCount)
+		require.NoError(t, err)
+		assert.Equal(t, 8, permCount, "should create 8 permissions")
+
+		// Verify specific permissions exist
+		expectedPerms := []string{"sms:read", "sms:write", "sms:delete", "users:read", "users:write", "users:delete", "groups:manage", "permissions:manage"}
+		for _, permName := range expectedPerms {
+			var exists int
+			err = db.db.QueryRow("SELECT COUNT(*) FROM permissions WHERE name = ?", permName).Scan(&exists)
+			require.NoError(t, err)
+			assert.Equal(t, 1, exists, "permission %s should exist", permName)
+		}
+
+		// Verify 2 groups were created
+		var groupCount int
+		err = db.db.QueryRow("SELECT COUNT(*) FROM groups").Scan(&groupCount)
+		require.NoError(t, err)
+		assert.Equal(t, 2, groupCount, "should create 2 groups")
+
+		// Verify Administrators group has all 8 permissions
+		var adminGroupPerms int
+		err = db.db.QueryRow(`
+			SELECT COUNT(*) FROM group_permissions gp
+			JOIN groups g ON g.id = gp.group_id
+			WHERE g.name = ?`, "Administrators").Scan(&adminGroupPerms)
+		require.NoError(t, err)
+		assert.Equal(t, 8, adminGroupPerms, "Administrators group should have all 8 permissions")
+
+		// Verify Users group has 2 permissions (sms:read, sms:write)
+		var usersGroupPerms int
+		err = db.db.QueryRow(`
+			SELECT COUNT(*) FROM group_permissions gp
+			JOIN groups g ON g.id = gp.group_id
+			WHERE g.name = ?`, "Users").Scan(&usersGroupPerms)
+		require.NoError(t, err)
+		assert.Equal(t, 2, usersGroupPerms, "Users group should have 2 permissions")
+
+		// Verify admin user is assigned to Administrators group
+		var userGroups int
+		err = db.db.QueryRow(`
+			SELECT COUNT(*) FROM user_groups ug
+			JOIN users u ON u.id = ug.user_id
+			JOIN groups g ON g.id = ug.group_id
+			WHERE u.username = ? AND g.name = ?`, "admin", "Administrators").Scan(&userGroups)
+		require.NoError(t, err)
+		assert.Equal(t, 1, userGroups, "admin should be in Administrators group")
+	})
+
+	t.Run("idempotent seeding - skips if users exist", func(t *testing.T) {
+		db, err := NewDatabase(":memory:")
+		require.NoError(t, err)
+		defer db.Close()
+
+		// First seed
+		err = db.SeedDatabase("password1")
+		require.NoError(t, err)
+
+		// Count users and permissions after first seed
+		var userCount1, permCount1 int
+		db.db.QueryRow("SELECT COUNT(*) FROM users").Scan(&userCount1)
+		db.db.QueryRow("SELECT COUNT(*) FROM permissions").Scan(&permCount1)
+
+		// Second seed should skip
+		err = db.SeedDatabase("password2")
+		require.NoError(t, err)
+
+		// Counts should be the same
+		var userCount2, permCount2 int
+		db.db.QueryRow("SELECT COUNT(*) FROM users").Scan(&userCount2)
+		db.db.QueryRow("SELECT COUNT(*) FROM permissions").Scan(&permCount2)
+
+		assert.Equal(t, userCount1, userCount2, "user count should not change on second seed")
+		assert.Equal(t, permCount1, permCount2, "permission count should not change on second seed")
+
+		// Verify password is from first seed, not second
+		var passwordHash string
+		err = db.db.QueryRow("SELECT password_hash FROM users WHERE username = ?", "admin").Scan(&passwordHash)
+		require.NoError(t, err)
+
+		err = bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte("password1"))
+		assert.NoError(t, err, "password should still be from first seed")
+
+		err = bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte("password2"))
+		assert.Error(t, err, "password should not match second seed attempt")
+	})
+
+	t.Run("seeding with empty password", func(t *testing.T) {
+		db, err := NewDatabase(":memory:")
+		require.NoError(t, err)
+		defer db.Close()
+
+		// Empty password should still work (bcrypt will hash it)
+		err = db.SeedDatabase("")
+		require.NoError(t, err)
+
+		// Verify admin user exists
+		var username string
+		err = db.db.QueryRow("SELECT username FROM users WHERE username = ?", "admin").Scan(&username)
+		require.NoError(t, err)
+		assert.Equal(t, "admin", username)
+	})
+
+	t.Run("verify all permission details", func(t *testing.T) {
+		db, err := NewDatabase(":memory:")
+		require.NoError(t, err)
+		defer db.Close()
+
+		err = db.SeedDatabase("testpass")
+		require.NoError(t, err)
+
+		// Verify each permission has correct resource and action
+		tests := []struct {
+			name     string
+			resource string
+			action   string
+		}{
+			{"sms:read", "sms", "read"},
+			{"sms:write", "sms", "write"},
+			{"sms:delete", "sms", "delete"},
+			{"users:read", "users", "read"},
+			{"users:write", "users", "write"},
+			{"users:delete", "users", "delete"},
+			{"groups:manage", "groups", "manage"},
+			{"permissions:manage", "permissions", "manage"},
+		}
+
+		for _, tt := range tests {
+			var resource, action string
+			var active bool
+			err = db.db.QueryRow(`
+				SELECT resource, action, active FROM permissions WHERE name = ?`, tt.name).
+				Scan(&resource, &action, &active)
+			require.NoError(t, err, "permission %s should exist", tt.name)
+			assert.Equal(t, tt.resource, resource, "permission %s resource mismatch", tt.name)
+			assert.Equal(t, tt.action, action, "permission %s action mismatch", tt.name)
+			assert.True(t, active, "permission %s should be active", tt.name)
+		}
+	})
+
+	t.Run("verify group details", func(t *testing.T) {
+		db, err := NewDatabase(":memory:")
+		require.NoError(t, err)
+		defer db.Close()
+
+		err = db.SeedDatabase("testpass")
+		require.NoError(t, err)
+
+		// Verify Administrators group
+		var adminDesc string
+		var adminActive bool
+		err = db.db.QueryRow(`
+			SELECT description, active FROM groups WHERE name = ?`, "Administrators").
+			Scan(&adminDesc, &adminActive)
+		require.NoError(t, err)
+		assert.Equal(t, "Full system access", adminDesc)
+		assert.True(t, adminActive)
+
+		// Verify Users group
+		var usersDesc string
+		var usersActive bool
+		err = db.db.QueryRow(`
+			SELECT description, active FROM groups WHERE name = ?`, "Users").
+			Scan(&usersDesc, &usersActive)
+		require.NoError(t, err)
+		assert.Equal(t, "Basic SMS access", usersDesc)
+		assert.True(t, usersActive)
 	})
 }

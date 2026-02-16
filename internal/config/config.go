@@ -30,6 +30,10 @@ type Config struct {
 		Level string `json:"level"`
 		Path  string `json:"path"`
 	} `json:"logging"`
+	Seed struct {
+		Enable        bool   `json:"enable"`
+		AdminPassword string `json:"admin_password"`
+	} `json:"seed"`
 }
 
 // LoadConfig loads configuration from a JSON file
@@ -77,5 +81,7 @@ func DefaultConfig() *Config {
 	config.JWT.TokenExpiry = 24 * time.Hour
 	config.Logging.Level = "info"
 	config.Logging.Path = "server.log"
+	config.Seed.Enable = true
+	config.Seed.AdminPassword = "admin123" // Should be changed in production
 	return config
 }
