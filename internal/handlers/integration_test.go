@@ -62,9 +62,13 @@ func setupIntegrationTest(t *testing.T) *IntegrationTestSuite {
 	database, err := db.NewDatabase(cfg.Database.DSN)
 	require.NoError(t, err, "Failed to initialize test database")
 
+	// Initialize repositories
+	userRepo := db.NewUserRepository(database.GetDB())
+
 	// Initialize services
 	smsService := services.NewSMSService(database)
-	authHandler := NewAuthHandler(cfg)
+	userService := services.NewUserService(userRepo)
+	authHandler := NewAuthHandler(cfg, userService)
 
 	// Setup router
 	gin.SetMode(gin.TestMode)

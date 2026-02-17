@@ -1,0 +1,81 @@
+ok  	sms-sync-server/cmd/server	0.511s	coverage: 72.3% of statements
+ok  	sms-sync-server/internal/config	0.009s	coverage: 86.2% of statements
+ok  	sms-sync-server/internal/db	1.255s	coverage: 84.1% of statements
+[GIN] 2026/02/16 - 21:30:40 | 200 |      39.234µs |                 | POST     "/api/auth/login"
+[GIN] 2026/02/16 - 21:30:40 | 401 |       4.829µs |                 | POST     "/api/auth/login"
+[GIN] 2026/02/16 - 21:30:40 | 401 |       9.287µs |                 | POST     "/api/auth/login"
+[GIN] 2026/02/16 - 21:30:40 | 400 |       3.757µs |                 | POST     "/api/auth/login"
+[GIN] 2026/02/16 - 21:30:40 | 400 |       3.687µs |                 | POST     "/api/auth/login"
+[GIN] 2026/02/16 - 21:30:40 | 400 |       3.477µs |                 | POST     "/api/auth/login"
+[GIN] 2026/02/16 - 21:30:40 | 401 |       3.316µs |                 | POST     "/api/auth/login"
+[GIN] 2026/02/16 - 21:30:40 | 401 |       3.366µs |                 | POST     "/api/auth/login"
+[GIN] 2026/02/16 - 21:30:40 | 401 |       2.074µs |                 | POST     "/api/auth/login"
+[GIN] 2026/02/16 - 21:30:40 | 401 |       3.697µs |                 | POST     "/api/auth/login"
+[GIN] 2026/02/16 - 21:30:40 | 500 |       2.174µs |                 | POST     "/api/auth/login"
+--- FAIL: TestFullIntegrationWorkflow (0.11s)
+    --- FAIL: TestFullIntegrationWorkflow/Login_and_Get_JWT_Token (0.00s)
+        integration_test.go:203: 
+            	Error Trace:	/home/danto/prj/golang/sms-syncer-server/internal/handlers/integration_test.go:203
+            	Error:      	Not equal: 
+            	            	expected: 200
+            	            	actual  : 401
+            	Test:       	TestFullIntegrationWorkflow/Login_and_Get_JWT_Token
+        integration_test.go:210: 
+            	Error Trace:	/home/danto/prj/golang/sms-syncer-server/internal/handlers/integration_test.go:210
+            	Error:      	Should be true
+            	Test:       	TestFullIntegrationWorkflow/Login_and_Get_JWT_Token
+            	Messages:   	Token should be present in response
+    --- FAIL: TestFullIntegrationWorkflow/Add_SMS_Message_with_JWT (0.00s)
+        integration_test.go:227: 
+            	Error Trace:	/home/danto/prj/golang/sms-syncer-server/internal/handlers/integration_test.go:227
+            	Error:      	Not equal: 
+            	            	expected: 200
+            	            	actual  : 401
+            	Test:       	TestFullIntegrationWorkflow/Add_SMS_Message_with_JWT
+        integration_test.go:232: 
+            	Error Trace:	/home/danto/prj/golang/sms-syncer-server/internal/handlers/integration_test.go:232
+            	Error:      	Not equal: 
+            	            	expected: string("success")
+            	            	actual  : <nil>(<nil>)
+            	Test:       	TestFullIntegrationWorkflow/Add_SMS_Message_with_JWT
+    --- FAIL: TestFullIntegrationWorkflow/Get_SMS_Messages_with_JWT (0.00s)
+        integration_test.go:243: 
+            	Error Trace:	/home/danto/prj/golang/sms-syncer-server/internal/handlers/integration_test.go:243
+            	Error:      	Not equal: 
+            	            	expected: 200
+            	            	actual  : 401
+            	Test:       	TestFullIntegrationWorkflow/Get_SMS_Messages_with_JWT
+        integration_test.go:246: 
+            	Error Trace:	/home/danto/prj/golang/sms-syncer-server/internal/handlers/integration_test.go:246
+            	Error:      	Received unexpected error:
+            	            	json: cannot unmarshal object into Go value of type []*db.SMSMessage
+            	Test:       	TestFullIntegrationWorkflow/Get_SMS_Messages_with_JWT
+    --- FAIL: TestFullIntegrationWorkflow/Verify_Database_State (0.00s)
+        integration_test.go:269: 
+            	Error Trace:	/home/danto/prj/golang/sms-syncer-server/internal/handlers/integration_test.go:269
+            	Error:      	"[]" should have 1 item(s), but has 0
+            	Test:       	TestFullIntegrationWorkflow/Verify_Database_State
+            	Messages:   	Database should contain exactly one message
+panic: runtime error: index out of range [0] with length 0 [recovered]
+	panic: runtime error: index out of range [0] with length 0
+
+goroutine 41 [running]:
+testing.tRunner.func1.2({0x95b2e0, 0xc000301668})
+	/home/danto/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.24.0.linux-amd64/src/testing/testing.go:1734 +0x21c
+testing.tRunner.func1()
+	/home/danto/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.24.0.linux-amd64/src/testing/testing.go:1737 +0x35e
+panic({0x95b2e0?, 0xc000301668?})
+	/home/danto/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.24.0.linux-amd64/src/runtime/panic.go:787 +0x132
+sms-sync-server/internal/handlers.TestFullIntegrationWorkflow.func5(0xc00049b500)
+	/home/danto/prj/golang/sms-syncer-server/internal/handlers/integration_test.go:271 +0x5a5
+testing.tRunner(0xc00049b500, 0xc0004839e0)
+	/home/danto/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.24.0.linux-amd64/src/testing/testing.go:1792 +0xf4
+created by testing.(*T).Run in goroutine 31
+	/home/danto/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.24.0.linux-amd64/src/testing/testing.go:1851 +0x413
+FAIL	sms-sync-server/internal/handlers	0.127s
+ok  	sms-sync-server/internal/models	0.007s	coverage: 97.7% of statements
+ok  	sms-sync-server/internal/services	9.981s	coverage: 72.0% of statements
+ok  	sms-sync-server/pkg/logger	0.008s	coverage: 96.3% of statements
+ok  	sms-sync-server/pkg/middleware	0.012s	coverage: 38.0% of statements
+ok  	sms-sync-server/router	0.026s	coverage: 99.0% of statements
+FAIL

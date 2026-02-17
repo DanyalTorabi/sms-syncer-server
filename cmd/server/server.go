@@ -44,14 +44,22 @@ func SetupServer(cfg *config.Config) (*http.Server, error) {
 		}
 	}
 
-	// Initialize SMS service
+	// Initialize repositories
+	userRepo := db.NewUserRepository(database.GetDB())
+	groupRepo := db.NewGroupRepository(database.GetDB())
+	permissionRepo := db.NewPermissionRepository(database.GetDB())
+
+	// Initialize services
+	userService := services.NewUserService(userRepo)
+	groupService := services.NewGroupService(groupRepo)
+	permissionService := services.NewPermissionService(permissionRepo, groupRepo)
 	smsService := services.NewSMSService(database)
 
 	// Initialize router
 	router := gin.Default()
 
 	// Setup routes
-	setupRoutes(router, cfg, smsService)
+	setupRoutes(router, cfg, smsService, userService, groupService, permissionService)
 
 	// Create server with security timeouts
 	srv := &http.Server{
@@ -67,9 +75,17 @@ func SetupServer(cfg *config.Config) (*http.Server, error) {
 }
 
 // setupRoutes configures all the HTTP routes
-func setupRoutes(router *gin.Engine, cfg *config.Config, smsService *services.SMSService) {
-	// Initialize auth handler
-	authHandler := handlers.NewAuthHandler(cfg)
+func setupRoutes(
+	router *gin.Engine,
+	cfg *config.Config,
+	smsService *services.SMSService,
+	userService *services.UserService,
+	groupService *services.GroupService,
+	permissionService *services.PermissionService,
+) {
+	// Initialize handlers
+	authHandler := handlers.NewAuthHandler(cfg, userService)
+	userHandler := handlers.NewUserHandler(userService)
 
 	// Basic health check endpoint (public)
 	router.GET("/health", handleHealthCheck)
@@ -78,6 +94,12 @@ func setupRoutes(router *gin.Engine, cfg *config.Config, smsService *services.SM
 	authGroup := router.Group("/api/auth")
 	{
 		authGroup.POST("/login", authHandler.Login)
+	}
+
+	// User registration endpoint (public)
+	usersGroup := router.Group("/api/users")
+	{
+		usersGroup.POST("", userHandler.Register)
 	}
 
 	// Protected routes group
