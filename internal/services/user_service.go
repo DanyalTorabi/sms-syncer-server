@@ -156,24 +156,10 @@ func (s *UserService) Authenticate(username, password, totpCode string) (*models
 		return nil, ErrInvalidCredentials
 	}
 
-	// Check if account is locked
-	if user.LockedUntil != nil && *user.LockedUntil > 0 {
-		lockTime := time.Unix(*user.LockedUntil, 0)
-		if time.Now().Before(lockTime) {
-			return nil, ErrAccountLocked
-		}
-		// Lock expired, reset failed attempts
-		if err := s.ResetFailedLogin(user.ID); err != nil {
-			return nil, fmt.Errorf("failed to reset failed login: %w", err)
-		}
-		// Reload user after reset
-		user, err = s.repo.GetByID(user.ID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to reload user: %w", err)
-		}
-		if user == nil {
-			return nil, ErrUserNotFound
-		}
+	// Check and handle account lock
+	user, err = s.checkAccountLock(user)
+	if err != nil {
+		return nil, err
 	}
 
 	// Check if user is active
@@ -183,7 +169,6 @@ func (s *UserService) Authenticate(username, password, totpCode string) (*models
 
 	// Verify password
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
-		// Increment failed login attempts
 		if incrementErr := s.IncrementFailedLogin(user.ID); incrementErr != nil {
 			return nil, fmt.Errorf("authentication failed and failed to increment counter: %w", incrementErr)
 		}
@@ -191,31 +176,8 @@ func (s *UserService) Authenticate(username, password, totpCode string) (*models
 	}
 
 	// Verify TOTP if enabled
-	if user.TOTPEnabled {
-		if totpCode == "" {
-			return nil, ErrInvalidTOTP
-		}
-		if user.TOTPSecret == nil {
-			return nil, ErrInvalidTOTP
-		}
-
-		// Decrypt secret if encryption is enabled
-		secret := *user.TOTPSecret
-		if s.encryptionKey != "" {
-			decryptedSecret, err := utils.DecryptTOTPSecret(secret, s.encryptionKey)
-			if err != nil {
-				return nil, fmt.Errorf("failed to decrypt TOTP secret: %w", err)
-			}
-			secret = decryptedSecret
-		}
-
-		if !totp.Validate(totpCode, secret) {
-			// Increment failed login attempts for invalid TOTP too
-			if incrementErr := s.IncrementFailedLogin(user.ID); incrementErr != nil {
-				return nil, fmt.Errorf("TOTP validation failed and failed to increment counter: %w", incrementErr)
-			}
-			return nil, ErrInvalidTOTP
-		}
+	if err := s.verifyTOTP(user, totpCode); err != nil {
+		return nil, err
 	}
 
 	// Authentication successful - reset failed attempts and update last login
@@ -234,6 +196,68 @@ func (s *UserService) Authenticate(username, password, totpCode string) (*models
 	}
 
 	return user, nil
+}
+
+// checkAccountLock checks if user account is locked and handles lock expiry
+func (s *UserService) checkAccountLock(user *models.User) (*models.User, error) {
+	if user.LockedUntil == nil || *user.LockedUntil == 0 {
+		return user, nil
+	}
+
+	lockTime := time.Unix(*user.LockedUntil, 0)
+	if time.Now().Before(lockTime) {
+		return nil, ErrAccountLocked
+	}
+
+	// Lock expired, reset failed attempts
+	if err := s.ResetFailedLogin(user.ID); err != nil {
+		return nil, fmt.Errorf("failed to reset failed login: %w", err)
+	}
+
+	// Reload user after reset
+	reloadedUser, err := s.repo.GetByID(user.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to reload user: %w", err)
+	}
+	if reloadedUser == nil {
+		return nil, ErrUserNotFound
+	}
+
+	return reloadedUser, nil
+}
+
+// verifyTOTP validates TOTP code if 2FA is enabled
+func (s *UserService) verifyTOTP(user *models.User, totpCode string) error {
+	if !user.TOTPEnabled {
+		return nil
+	}
+
+	if totpCode == "" {
+		return ErrInvalidTOTP
+	}
+
+	if user.TOTPSecret == nil {
+		return ErrInvalidTOTP
+	}
+
+	// Decrypt secret if encryption is enabled
+	secret := *user.TOTPSecret
+	if s.encryptionKey != "" {
+		decryptedSecret, err := utils.DecryptTOTPSecret(secret, s.encryptionKey)
+		if err != nil {
+			return fmt.Errorf("failed to decrypt TOTP secret: %w", err)
+		}
+		secret = decryptedSecret
+	}
+
+	if !totp.Validate(totpCode, secret) {
+		if incrementErr := s.IncrementFailedLogin(user.ID); incrementErr != nil {
+			return fmt.Errorf("TOTP validation failed and failed to increment counter: %w", incrementErr)
+		}
+		return ErrInvalidTOTP
+	}
+
+	return nil
 }
 
 // GetUser retrieves a user by ID
