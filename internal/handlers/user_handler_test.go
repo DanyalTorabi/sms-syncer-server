@@ -68,6 +68,11 @@ func (m *MockUserService) ChangePassword(id, oldPassword, newPassword string) er
 	return args.Error(0)
 }
 
+func (m *MockUserService) AdminSetPassword(id, newPassword string) error {
+	args := m.Called(id, newPassword)
+	return args.Error(0)
+}
+
 func (m *MockUserService) ListUsers(limit, offset int) ([]*models.User, error) {
 	args := m.Called(limit, offset)
 	if args.Get(0) == nil {

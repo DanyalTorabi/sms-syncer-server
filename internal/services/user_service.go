@@ -398,6 +398,42 @@ func (s *UserService) ChangePassword(id, oldPassword, newPassword string) error 
 	return nil
 }
 
+// AdminSetPassword allows an admin to set a user's password without knowing the old password
+// This should only be called by admin endpoints with proper permission checks
+func (s *UserService) AdminSetPassword(id, newPassword string) error {
+	if id == "" {
+		return errors.New("user ID cannot be empty")
+	}
+
+	// Validate new password
+	if err := validatePassword(newPassword); err != nil {
+		return err
+	}
+
+	// Get user
+	user, err := s.repo.GetByID(id)
+	if err != nil {
+		return fmt.Errorf("failed to get user: %w", err)
+	}
+	if user == nil {
+		return ErrUserNotFound
+	}
+
+	// Hash new password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), BcryptCost)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	// Update password
+	user.PasswordHash = string(hashedPassword)
+	if err := s.repo.Update(user); err != nil {
+		return fmt.Errorf("failed to update password: %w", err)
+	}
+
+	return nil
+}
+
 // AssignToGroup assigns a user to a group
 func (s *UserService) AssignToGroup(userID, groupID string) error {
 	if userID == "" {

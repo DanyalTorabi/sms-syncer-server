@@ -14,6 +14,7 @@ type UserServiceInterface interface {
 	UpdateUser(id string, updates map[string]interface{}) error
 	DeleteUser(id string) error
 	ChangePassword(id, oldPassword, newPassword string) error
+	AdminSetPassword(id, newPassword string) error
 	ListUsers(limit, offset int) ([]*models.User, error)
 	AssignToGroup(userID, groupID string) error
 	RemoveFromGroup(userID, groupID string) error

@@ -106,6 +106,20 @@ func setupRoutes(
 	protected := router.Group("/api")
 	protected.Use(middleware.AuthMiddleware(cfg))
 
+	// User management endpoints (protected)
+	protectedUsers := protected.Group("/users")
+	{
+		// Self-service password change
+		protectedUsers.POST("/:id/password", userHandler.ChangePassword)
+	}
+
+	// Admin routes (protected, TODO: add admin permission middleware in #80)
+	adminGroup := protected.Group("/admin")
+	{
+		// Admin password reset
+		adminGroup.POST("/users/:id/password/reset", userHandler.AdminResetPassword)
+	}
+
 	// SMS endpoint (protected)
 	protected.POST("/sms/add", func(c *gin.Context) {
 		handleAddSMS(c, smsService)

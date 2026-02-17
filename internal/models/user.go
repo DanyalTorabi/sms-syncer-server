@@ -41,6 +41,20 @@ type UpdateUserRequest struct {
 	TOTPEnabled *bool   `json:"totp_enabled,omitempty"`
 }
 
+// ChangePasswordRequest represents the request body for changing a user's password (self-service)
+type ChangePasswordRequest struct {
+	// #nosec G117 - Input struct for receiving plain password
+	OldPassword string `json:"old_password" binding:"required"`
+	// #nosec G117 - Input struct for receiving plain password
+	NewPassword string `json:"new_password" binding:"required"`
+}
+
+// AdminResetPasswordRequest represents the request body for admin password reset
+type AdminResetPasswordRequest struct {
+	// #nosec G117 - Input struct for receiving plain password
+	NewPassword string `json:"new_password" binding:"required"`
+}
+
 // UserResponse represents a safe user representation for API responses
 // This excludes all sensitive fields and is safe to send to clients
 type UserResponse struct {
