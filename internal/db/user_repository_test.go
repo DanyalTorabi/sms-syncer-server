@@ -12,7 +12,7 @@ import (
 )
 
 func setupTestUserRepository(t *testing.T) (*sql.DB, UserRepository) {
-	db := setupTestDB(t)
+	db := SetupTestDB(t)
 	repo := NewUserRepository(db)
 	return db, repo
 }
