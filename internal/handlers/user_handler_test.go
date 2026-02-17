@@ -91,6 +91,21 @@ func (m *MockUserService) RemoveFromGroup(userID, groupID string) error {
 	return args.Error(0)
 }
 
+func (m *MockUserService) GenerateTOTPSecret(userID string) (string, error) {
+	args := m.Called(userID)
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockUserService) EnableTOTP(userID, totpCode string) error {
+	args := m.Called(userID, totpCode)
+	return args.Error(0)
+}
+
+func (m *MockUserService) DisableTOTP(userID string) error {
+	args := m.Called(userID)
+	return args.Error(0)
+}
+
 func TestNewUserHandler(t *testing.T) {
 	mockService := new(MockUserService)
 	handler := NewUserHandler(mockService)

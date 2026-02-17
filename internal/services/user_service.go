@@ -9,8 +9,10 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
+	"sms-sync-server/internal/config"
 	"sms-sync-server/internal/db"
 	"sms-sync-server/internal/models"
+	"sms-sync-server/pkg/utils"
 
 	"github.com/pquerna/otp/totp"
 )
@@ -63,13 +65,23 @@ var (
 
 // UserService provides business logic for user management
 type UserService struct {
-	repo db.UserRepository
+	repo          db.UserRepository
+	encryptionKey string
 }
 
 // NewUserService creates a new UserService instance
 func NewUserService(repo db.UserRepository) *UserService {
 	return &UserService{
-		repo: repo,
+		repo:          repo,
+		encryptionKey: "",
+	}
+}
+
+// NewUserServiceWithEncryption creates a new UserService instance with encryption for TOTP secrets
+func NewUserServiceWithEncryption(repo db.UserRepository, cfg *config.Config) *UserService {
+	return &UserService{
+		repo:          repo,
+		encryptionKey: cfg.Security.TOTPEncryptionKey,
 	}
 }
 
@@ -183,7 +195,21 @@ func (s *UserService) Authenticate(username, password, totpCode string) (*models
 		if totpCode == "" {
 			return nil, ErrInvalidTOTP
 		}
-		if user.TOTPSecret == nil || !totp.Validate(totpCode, *user.TOTPSecret) {
+		if user.TOTPSecret == nil {
+			return nil, ErrInvalidTOTP
+		}
+
+		// Decrypt secret if encryption is enabled
+		secret := *user.TOTPSecret
+		if s.encryptionKey != "" {
+			decryptedSecret, err := utils.DecryptTOTPSecret(secret, s.encryptionKey)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decrypt TOTP secret: %w", err)
+			}
+			secret = decryptedSecret
+		}
+
+		if !totp.Validate(totpCode, secret) {
 			// Increment failed login attempts for invalid TOTP too
 			if incrementErr := s.IncrementFailedLogin(user.ID); incrementErr != nil {
 				return nil, fmt.Errorf("TOTP validation failed and failed to increment counter: %w", incrementErr)
@@ -606,11 +632,25 @@ func (s *UserService) GenerateTOTPSecret(userID string) (string, error) {
 	}
 
 	secret := key.Secret()
-	user.TOTPSecret = &secret
+
+	// Encrypt secret if encryption key is configured
+	var storedSecret string
+	if s.encryptionKey != "" {
+		encryptedSecret, err := utils.EncryptTOTPSecret(secret, s.encryptionKey)
+		if err != nil {
+			return "", fmt.Errorf("failed to encrypt TOTP secret: %w", err)
+		}
+		storedSecret = encryptedSecret
+	} else {
+		storedSecret = secret
+	}
+
+	user.TOTPSecret = &storedSecret
 	if err := s.repo.Update(user); err != nil {
 		return "", fmt.Errorf("failed to update TOTP secret: %w", err)
 	}
 
+	// Return the unencrypted secret for QR code generation
 	return secret, nil
 }
 
@@ -635,8 +675,18 @@ func (s *UserService) EnableTOTP(userID, totpCode string) error {
 		return errors.New("TOTP secret not generated")
 	}
 
+	// Decrypt secret if encryption is enabled
+	secret := *user.TOTPSecret
+	if s.encryptionKey != "" {
+		decryptedSecret, err := utils.DecryptTOTPSecret(secret, s.encryptionKey)
+		if err != nil {
+			return fmt.Errorf("failed to decrypt TOTP secret: %w", err)
+		}
+		secret = decryptedSecret
+	}
+
 	// Validate TOTP code
-	if !totp.Validate(totpCode, *user.TOTPSecret) {
+	if !totp.Validate(totpCode, secret) {
 		return ErrInvalidTOTP
 	}
 

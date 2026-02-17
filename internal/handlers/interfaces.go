@@ -18,4 +18,9 @@ type UserServiceInterface interface {
 	ListUsers(limit, offset int) ([]*models.User, error)
 	AssignToGroup(userID, groupID string) error
 	RemoveFromGroup(userID, groupID string) error
+
+	// 2FA/TOTP methods
+	GenerateTOTPSecret(userID string) (string, error)
+	EnableTOTP(userID, totpCode string) error
+	DisableTOTP(userID string) error
 }

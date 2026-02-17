@@ -275,3 +275,295 @@ func TestLoginJWTClaims(t *testing.T) {
 
 	mockService.AssertExpectations(t)
 }
+func TestGenerate2FASecret(t *testing.T) {
+	tests := []struct {
+		name           string
+		userID         string
+		mockSetup      func(*MockUserService)
+		expectedStatus int
+		checkResponse  func(*testing.T, map[string]interface{})
+	}{
+		{
+			name:   "successfully generate 2FA secret",
+			userID: "user-123",
+			mockSetup: func(m *MockUserService) {
+				secret := "JBSWY3DPEHPK3PXP"
+				user := &models.User{
+					ID:       "user-123",
+					Username: "testuser",
+				}
+				m.On("GenerateTOTPSecret", "user-123").Return(secret, nil)
+				m.On("GetUser", "user-123").Return(user, nil)
+			},
+			expectedStatus: http.StatusOK,
+			checkResponse: func(t *testing.T, resp map[string]interface{}) {
+				assert.NotEmpty(t, resp["secret"])
+				assert.NotEmpty(t, resp["qr_code"])
+				assert.NotEmpty(t, resp["qr_uri"])
+				assert.Contains(t, resp["qr_uri"].(string), "otpauth://totp/SMS%20Syncer:")
+			},
+		},
+		{
+			name:   "missing user ID in context",
+			userID: "",
+			mockSetup: func(m *MockUserService) {
+				// No mock expectations
+			},
+			expectedStatus: http.StatusUnauthorized,
+			checkResponse: func(t *testing.T, resp map[string]interface{}) {
+				assert.Equal(t, "Unauthorized", resp["error"])
+			},
+		},
+		{
+			name:   "failed to generate TOTP secret",
+			userID: "user-123",
+			mockSetup: func(m *MockUserService) {
+				m.On("GenerateTOTPSecret", "user-123").Return("", assert.AnError)
+			},
+			expectedStatus: http.StatusInternalServerError,
+			checkResponse: func(t *testing.T, resp map[string]interface{}) {
+				assert.Equal(t, "Failed to generate 2FA secret", resp["error"])
+			},
+		},
+		{
+			name:   "failed to get user details",
+			userID: "user-123",
+			mockSetup: func(m *MockUserService) {
+				secret := "JBSWY3DPEHPK3PXP"
+				m.On("GenerateTOTPSecret", "user-123").Return(secret, nil)
+				m.On("GetUser", "user-123").Return(nil, assert.AnError)
+			},
+			expectedStatus: http.StatusInternalServerError,
+			checkResponse: func(t *testing.T, resp map[string]interface{}) {
+				assert.Equal(t, "Failed to generate 2FA secret", resp["error"])
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gin.SetMode(gin.TestMode)
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+
+			cfg := &config.Config{}
+			cfg.JWT.Secret = "test-secret"
+			mockService := new(MockUserService)
+			handler := NewAuthHandler(cfg, mockService)
+
+			// Setup mock
+			tt.mockSetup(mockService)
+
+			// Set user ID in context
+			c.Set("user_id", tt.userID)
+
+			// Execute handler
+			handler.Generate2FASecret(c)
+
+			// Verify response
+			assert.Equal(t, tt.expectedStatus, w.Code)
+
+			var response map[string]interface{}
+			err := json.Unmarshal(w.Body.Bytes(), &response)
+			assert.NoError(t, err)
+
+			tt.checkResponse(t, response)
+			mockService.AssertExpectations(t)
+		})
+	}
+}
+
+func TestEnable2FA(t *testing.T) {
+	tests := []struct {
+		name           string
+		userID         string
+		requestBody    Enable2FARequest
+		mockSetup      func(*MockUserService)
+		expectedStatus int
+		checkResponse  func(*testing.T, map[string]interface{})
+	}{
+		{
+			name:   "successfully enable 2FA",
+			userID: "user-123",
+			requestBody: Enable2FARequest{
+				TOTPCode: "123456",
+			},
+			mockSetup: func(m *MockUserService) {
+				m.On("EnableTOTP", "user-123", "123456").Return(nil)
+			},
+			expectedStatus: http.StatusOK,
+			checkResponse: func(t *testing.T, resp map[string]interface{}) {
+				assert.Equal(t, "2FA enabled successfully", resp["message"])
+			},
+		},
+		{
+			name:   "missing user ID in context",
+			userID: "",
+			requestBody: Enable2FARequest{
+				TOTPCode: "123456",
+			},
+			mockSetup: func(m *MockUserService) {
+				// No mock expectations
+			},
+			expectedStatus: http.StatusUnauthorized,
+			checkResponse: func(t *testing.T, resp map[string]interface{}) {
+				assert.Equal(t, "Unauthorized", resp["error"])
+			},
+		},
+		{
+			name:   "missing TOTP code",
+			userID: "user-123",
+			requestBody: Enable2FARequest{
+				TOTPCode: "",
+			},
+			mockSetup: func(m *MockUserService) {
+				// No mock expectations
+			},
+			expectedStatus: http.StatusBadRequest,
+			checkResponse: func(t *testing.T, resp map[string]interface{}) {
+				assert.Equal(t, "TOTP code is required", resp["error"])
+			},
+		},
+		{
+			name:   "invalid TOTP code",
+			userID: "user-123",
+			requestBody: Enable2FARequest{
+				TOTPCode: "000000",
+			},
+			mockSetup: func(m *MockUserService) {
+				m.On("EnableTOTP", "user-123", "000000").Return(services.ErrInvalidTOTP)
+			},
+			expectedStatus: http.StatusBadRequest,
+			checkResponse: func(t *testing.T, resp map[string]interface{}) {
+				assert.Equal(t, "Invalid TOTP code", resp["error"])
+			},
+		},
+		{
+			name:   "service error",
+			userID: "user-123",
+			requestBody: Enable2FARequest{
+				TOTPCode: "123456",
+			},
+			mockSetup: func(m *MockUserService) {
+				m.On("EnableTOTP", "user-123", "123456").Return(assert.AnError)
+			},
+			expectedStatus: http.StatusInternalServerError,
+			checkResponse: func(t *testing.T, resp map[string]interface{}) {
+				assert.Equal(t, "Failed to enable 2FA", resp["error"])
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gin.SetMode(gin.TestMode)
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+
+			cfg := &config.Config{}
+			cfg.JWT.Secret = "test-secret"
+			mockService := new(MockUserService)
+			handler := NewAuthHandler(cfg, mockService)
+
+			// Setup mock
+			tt.mockSetup(mockService)
+
+			// Set user ID in context
+			c.Set("user_id", tt.userID)
+
+			// Create request
+			body, _ := json.Marshal(tt.requestBody)
+			c.Request = httptest.NewRequest(http.MethodPost, "/api/auth/2fa/enable", bytes.NewBuffer(body))
+			c.Request.Header.Set("Content-Type", "application/json")
+
+			// Execute handler
+			handler.Enable2FA(c)
+
+			// Verify response
+			assert.Equal(t, tt.expectedStatus, w.Code)
+
+			var response map[string]interface{}
+			err := json.Unmarshal(w.Body.Bytes(), &response)
+			assert.NoError(t, err)
+
+			tt.checkResponse(t, response)
+			mockService.AssertExpectations(t)
+		})
+	}
+}
+
+func TestDisable2FA(t *testing.T) {
+	tests := []struct {
+		name           string
+		userID         string
+		mockSetup      func(*MockUserService)
+		expectedStatus int
+		checkResponse  func(*testing.T, map[string]interface{})
+	}{
+		{
+			name:   "successfully disable 2FA",
+			userID: "user-123",
+			mockSetup: func(m *MockUserService) {
+				m.On("DisableTOTP", "user-123").Return(nil)
+			},
+			expectedStatus: http.StatusOK,
+			checkResponse: func(t *testing.T, resp map[string]interface{}) {
+				assert.Equal(t, "2FA disabled successfully", resp["message"])
+			},
+		},
+		{
+			name:   "missing user ID in context",
+			userID: "",
+			mockSetup: func(m *MockUserService) {
+				// No mock expectations
+			},
+			expectedStatus: http.StatusUnauthorized,
+			checkResponse: func(t *testing.T, resp map[string]interface{}) {
+				assert.Equal(t, "Unauthorized", resp["error"])
+			},
+		},
+		{
+			name:   "service error",
+			userID: "user-123",
+			mockSetup: func(m *MockUserService) {
+				m.On("DisableTOTP", "user-123").Return(assert.AnError)
+			},
+			expectedStatus: http.StatusInternalServerError,
+			checkResponse: func(t *testing.T, resp map[string]interface{}) {
+				assert.Equal(t, "Failed to disable 2FA", resp["error"])
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gin.SetMode(gin.TestMode)
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+
+			cfg := &config.Config{}
+			cfg.JWT.Secret = "test-secret"
+			mockService := new(MockUserService)
+			handler := NewAuthHandler(cfg, mockService)
+
+			// Setup mock
+			tt.mockSetup(mockService)
+
+			// Set user ID in context
+			c.Set("user_id", tt.userID)
+
+			// Execute handler
+			handler.Disable2FA(c)
+
+			// Verify response
+			assert.Equal(t, tt.expectedStatus, w.Code)
+
+			var response map[string]interface{}
+			err := json.Unmarshal(w.Body.Bytes(), &response)
+			assert.NoError(t, err)
+
+			tt.checkResponse(t, response)
+			mockService.AssertExpectations(t)
+		})
+	}
+}
