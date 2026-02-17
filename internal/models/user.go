@@ -28,10 +28,10 @@ type User struct {
 
 // CreateUserRequest represents the request body for creating a new user
 type CreateUserRequest struct {
-	Username string `json:"username" binding:"required,min=3,max=50"`
-	Email    string `json:"email" binding:"required,email"`
+	Username string `json:"username" binding:"required"`
+	Email    string `json:"email" binding:"required"`
 	// #nosec G117 - Input struct for receiving plain password, will be hashed before storage
-	Password string `json:"password" binding:"required,min=8"`
+	Password string `json:"password" binding:"required"`
 }
 
 // UpdateUserRequest represents the request body for updating an existing user

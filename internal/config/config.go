@@ -77,8 +77,8 @@ func DefaultConfig() *Config {
 	config.Server.Port = 8080
 	config.Server.Host = "localhost"
 	config.Database.DSN = "file:sms.db?cache=shared&mode=rwc"
-	config.JWT.Secret = "your-secret-key" // This should be changed in production
-	config.JWT.TokenExpiry = 24 * time.Hour
+	config.JWT.Secret = "your-secret-key"  // This should be changed in production
+	config.JWT.TokenExpiry = 1 * time.Hour // 1-hour expiry as per ticket #69
 	config.Logging.Level = "info"
 	config.Logging.Path = "server.log"
 	config.Seed.Enable = true

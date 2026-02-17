@@ -227,6 +227,36 @@ func (s *UserService) GetUser(id string) (*models.User, error) {
 	return user, nil
 }
 
+// GetUserWithPermissions retrieves a user by ID with their effective permissions
+func (s *UserService) GetUserWithPermissions(id string) (*models.User, error) {
+	if id == "" {
+		return nil, errors.New("user ID cannot be empty")
+	}
+
+	// Get user
+	user, err := s.repo.GetByID(id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+	if user == nil {
+		return nil, ErrUserNotFound
+	}
+
+	// Get user permissions from all their groups
+	permissions, err := s.repo.GetUserPermissions(id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user permissions: %w", err)
+	}
+
+	// Convert []*models.Permission to []models.Permission
+	user.Permissions = make([]models.Permission, len(permissions))
+	for i, perm := range permissions {
+		user.Permissions[i] = *perm
+	}
+
+	return user, nil
+}
+
 // UpdateUser updates user fields
 func (s *UserService) UpdateUser(id string, updates map[string]interface{}) error {
 	if id == "" {

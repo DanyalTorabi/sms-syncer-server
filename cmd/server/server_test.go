@@ -214,7 +214,7 @@ func TestSetupRoutes(t *testing.T) {
 	smsService := services.NewSMSService(mockDB)
 
 	// Test with valid configuration
-	setupRoutes(router, cfg, smsService)
+	setupRoutes(router, cfg, smsService, nil, nil, nil)
 
 	// Verify routes are registered
 	routes := router.Routes()
@@ -240,17 +240,17 @@ func TestSetupRoutes(t *testing.T) {
 
 	// Test with nil router
 	assert.Panics(t, func() {
-		setupRoutes(nil, cfg, smsService)
+		setupRoutes(nil, cfg, smsService, nil, nil, nil)
 	})
 
 	// Test with nil service
 	assert.Panics(t, func() {
-		setupRoutes(router, cfg, nil)
+		setupRoutes(router, cfg, nil, nil, nil, nil)
 	})
 
 	// Test with nil config
 	assert.Panics(t, func() {
-		setupRoutes(router, nil, smsService)
+		setupRoutes(router, nil, smsService, nil, nil, nil)
 	})
 }
 

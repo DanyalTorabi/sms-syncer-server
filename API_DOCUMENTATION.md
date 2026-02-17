@@ -1,6 +1,183 @@
 # SMS Sync Server API Documentation
 
-## Add SMS Message Endpoint
+## Table of Contents
+1. [Authentication](#authentication)
+   - [Login](#login-endpoint)
+   - [User Registration](#user-registration-endpoint)
+2. [SMS Operations](#sms-operations)
+   - [Add SMS Message](#add-sms-message-endpoint)
+
+---
+
+## Authentication
+
+### Login Endpoint
+
+#### Overview
+Authenticates a user and returns a JWT token with 1-hour expiry. The token includes user information and their effective permissions.
+
+#### Endpoint Details
+
+**URL:** `POST /api/auth/login`  
+**Content-Type:** `application/json`  
+**Authentication:** Not required (public endpoint)
+
+#### Request Schema
+
+```json
+{
+  "username": "testuser",
+  "password": "testpass",
+  "totp_code": "123456"  // Optional: 2FA code if enabled
+}
+```
+
+#### Field Descriptions
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `username` | string | **Yes** | User's username (3-50 characters) |
+| `password` | string | **Yes** | User's password (minimum 8 characters) |
+| `totp_code` | string | No | 6-digit TOTP code (required if 2FA is enabled for user) |
+
+#### Response
+
+**Success Response (200 OK):**
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user_id": "550e8400-e29b-41d4-a716-446655440000",
+  "username": "testuser"
+}
+```
+
+**JWT Token Contents:**
+The token contains the following claims:
+- `user_id`: User's UUID
+- `username`: Username
+- `permissions`: Array of permission UUIDs the user has access to
+- `exp`: Token expiration time (1 hour from issue)
+- `iat`: Token issued at time
+- `nbf`: Token not before time
+
+**Error Responses:**
+
+| Status Code | Description | Response Body |
+|-------------|-------------|---------------|
+| 400 Bad Request | Missing credentials | `{"error": "Username and password are required"}` |
+| 401 Unauthorized | Invalid credentials | `{"error": "Invalid credentials"}` |
+| 403 Forbidden | Account locked | `{"error": "Account is locked due to too many failed login attempts"}` |
+| 500 Internal Server Error | Server error | `{"error": "Failed to generate token"}` |
+
+#### Example Request
+
+```bash
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "admin",
+    "password": "admin123"
+  }'
+```
+
+#### Example Response
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiNTUwZTg0MDAtZTI5Yi00MWQ0LWE3MTYtNDQ2NjU1NDQwMDAwIiwidXNlcm5hbWUiOiJhZG1pbiIsInBlcm1pc3Npb25zIjpbInBlcm0tMSIsInBlcm0tMiJdLCJleHAiOjE3MDk1NjcwMDB9...",
+  "user_id": "550e8400-e29b-41d4-a716-446655440000",
+  "username": "admin"
+}
+```
+
+---
+
+### User Registration Endpoint
+
+#### Overview
+Creates a new user account. Validates username, email, and password strength. Usernames and emails must be unique.
+
+#### Endpoint Details
+
+**URL:** `POST /api/users`  
+**Content-Type:** `application/json`  
+**Authentication:** Not required (public endpoint)
+
+#### Request Schema
+
+```json
+{
+  "username": "newuser",
+  "email": "newuser@example.com",
+  "password": "SecurePassword123!"
+}
+```
+
+#### Field Descriptions
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `username` | string | **Yes** | Username (3-50 characters, alphanumeric and underscores only) |
+| `email` | string | **Yes** | Valid email address |
+| `password` | string | **Yes** | Password (minimum 8 characters) |
+
+#### Password Requirements
+- Minimum 8 characters length
+- Password is hashed using bcrypt before storage
+
+#### Response
+
+**Success Response (201 Created):**
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "username": "newuser",
+  "email": "newuser@example.com",
+  "active": true,
+  "created_at": 1692864000
+}
+```
+
+**Error Responses:**
+
+| Status Code | Description | Response Body |
+|-------------|-------------|---------------|
+| 400 Bad Request | Missing field | `{"error": "Username is required"}` |
+| 400 Bad Request | Invalid username | `{"error": "username must be 3-50 characters..."}` |
+| 400 Bad Request | Invalid email | `{"error": "invalid email format"}` |
+| 400 Bad Request | Weak password | `{"error": "password must be at least 8 characters"}` |
+| 400 Bad Request | Duplicate username | `{"error": "username already exists"}` |
+| 400 Bad Request | Duplicate email | `{"error": "email already exists"}` |
+
+#### Example Request
+
+```bash
+curl -X POST http://localhost:8080/api/users \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "johndoe",
+    "email": "john.doe@example.com",
+    "password": "SecurePass123!"
+  }'
+```
+
+#### Example Response
+
+```json
+{
+  "id": "a3f2e1d0-b9c8-47a6-8f5e-4d3c2b1a0987",
+  "username": "johndoe",
+  "email": "john.doe@example.com",
+  "active": true,
+  "created_at": 1709500000
+}
+```
+
+---
+
+## SMS Operations
+
+### Add SMS Message Endpoint
 
 ### Overview
 This endpoint allows you to add a new SMS message to the database. It requires authentication and validates all required fields before storing the message.
@@ -19,16 +196,7 @@ The API requires a valid JWT token in the Authorization header:
 Authorization: Bearer <your-jwt-token>
 ```
 
-To get a token, use the login endpoint:
-```http
-POST /api/auth/login
-Content-Type: application/json
-
-{
-  "username": "testuser",
-  "password": "testpass"
-}
-```
+To get a token, use the login endpoint documented above.
 
 ### Request Schema
 

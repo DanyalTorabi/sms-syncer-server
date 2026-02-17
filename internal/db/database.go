@@ -81,6 +81,11 @@ func NewDatabase(dbPath string) (*Database, error) {
 	return &Database{db: db}, nil
 }
 
+// GetDB returns the underlying sql.DB instance for use with repositories
+func (d *Database) GetDB() *sql.DB {
+	return d.db
+}
+
 func createTables(db *sql.DB) error {
 	// Create all base tables
 	if err := createBaseTables(db); err != nil {
