@@ -7,8 +7,8 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-// setupTestDB creates an in-memory SQLite database for testing
-func setupTestDB(t *testing.T) *sql.DB {
+// SetupTestDB creates an in-memory SQLite database for testing
+func SetupTestDB(t *testing.T) *sql.DB {
 	t.Helper()
 
 	db, err := sql.Open("sqlite3", ":memory:")
