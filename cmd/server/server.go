@@ -118,8 +118,25 @@ func setupRoutes(
 	// User management endpoints (protected)
 	protectedUsers := protected.Group("/users")
 	{
+		// List users (GET /api/users)
+		protectedUsers.GET("", userHandler.ListUsers)
+
+		// Get user by ID (GET /api/users/:id)
+		protectedUsers.GET("/:id", userHandler.GetUserByID)
+
+		// Update user (PUT /api/users/:id)
+		protectedUsers.PUT("/:id", userHandler.UpdateUserByID)
+
+		// Delete user - soft delete (DELETE /api/users/:id)
+		protectedUsers.DELETE("/:id", userHandler.DeleteUserByID)
+
 		// Self-service password change
 		protectedUsers.POST("/:id/password", userHandler.ChangePassword)
+
+		// User-group assignment
+		protectedUsers.POST("/:id/groups", userHandler.AssignUserToGroup)
+		protectedUsers.DELETE("/:id/groups/:groupId", userHandler.RemoveUserFromGroup)
+		protectedUsers.GET("/:id/groups", userHandler.ListUserGroups)
 	}
 
 	// Admin routes (protected, TODO: add admin permission middleware in #80)

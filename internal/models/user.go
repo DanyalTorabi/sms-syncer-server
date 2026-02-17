@@ -67,6 +67,24 @@ type UserResponse struct {
 	CreatedAt   int64  `json:"created_at"`
 }
 
+// UserDetailResponse represents a detailed user with groups and permissions
+type UserDetailResponse struct {
+	ID          string       `json:"id"`
+	Username    string       `json:"username"`
+	Email       string       `json:"email"`
+	Active      bool         `json:"active"`
+	TOTPEnabled bool         `json:"totp_enabled"`
+	LastLogin   *int64       `json:"last_login,omitempty"`
+	CreatedAt   int64        `json:"created_at"`
+	Groups      []Group      `json:"groups,omitempty"`
+	Permissions []Permission `json:"permissions,omitempty"`
+}
+
+// AssignGroupRequest represents the request body for assigning a user to a group
+type AssignGroupRequest struct {
+	GroupID string `json:"group_id" binding:"required"`
+}
+
 // NewUser creates a new User with generated UUID and timestamps
 // The password should already be hashed before calling this function
 func NewUser(username, email, passwordHash string) *User {
@@ -166,5 +184,21 @@ func (u *User) ToResponse() *UserResponse {
 		TOTPEnabled: u.TOTPEnabled,
 		LastLogin:   u.LastLogin,
 		CreatedAt:   u.CreatedAt,
+	}
+}
+
+// ToDetailResponse converts User to UserDetailResponse with groups and permissions
+// This includes expanded relationships and is safe to send to clients
+func (u *User) ToDetailResponse() *UserDetailResponse {
+	return &UserDetailResponse{
+		ID:          u.ID,
+		Username:    u.Username,
+		Email:       u.Email,
+		Active:      u.Active,
+		TOTPEnabled: u.TOTPEnabled,
+		LastLogin:   u.LastLogin,
+		CreatedAt:   u.CreatedAt,
+		Groups:      u.Groups,
+		Permissions: u.Permissions,
 	}
 }

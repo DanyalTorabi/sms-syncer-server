@@ -13,6 +13,14 @@
    - [Disable 2FA](#disable-2fa-endpoint)
 4. [SMS Operations](#sms-operations)
    - [Add SMS Message](#add-sms-message-endpoint)
+5. [User Management](#user-management)
+   - [List Users](#list-users-endpoint)
+   - [Get User By ID](#get-user-by-id-endpoint)
+   - [Update User By ID](#update-user-by-id-endpoint)
+   - [Delete User By ID](#delete-user-by-id-endpoint)
+   - [Assign User To Group](#assign-user-to-group-endpoint)
+   - [Remove User From Group](#remove-user-from-group-endpoint)
+   - [List User Groups](#list-user-groups-endpoint)
 
 ---
 
@@ -719,3 +727,413 @@ curl -X POST http://localhost:8080/api/sms/add \
   
 # Expected: 204 No Content (success)
 ```
+---
+
+## User Management
+
+### List Users Endpoint
+
+#### Overview
+Retrieves a paginated list of all users in the system. Supports filtering by active status and pagination.
+
+#### Endpoint Details
+
+**URL:** `GET /api/users`  
+**Authentication:** Required (JWT Bearer token)  
+**Required Permission:** `users:read`
+
+#### Query Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `limit` | integer | No | 50 | Number of users per page (max: 100) |
+| `offset` | integer | No | 0 | Number of users to skip |
+| `active` | boolean | No | (all) | Filter by active status (`true` or `false`) |
+
+#### Response
+
+**Success Response (200 OK):**
+```json
+{
+  "users": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "username": "john.doe",
+      "email": "john@example.com",
+      "active": true,
+      "created_at": "2024-01-15T10:30:00Z",
+      "updated_at": "2024-01-15T10:30:00Z"
+    }
+  ],
+  "total": 45,
+  "limit": 50,
+  "offset": 0
+}
+```
+
+**Error Responses:**
+
+| Status Code | Description | Response Body |
+|-------------|-------------|---------------|
+| 401 Unauthorized | Missing or invalid token | `{"error": "Unauthorized"}` |
+| 403 Forbidden | Insufficient permissions | `{"error": "Insufficient permissions"}` |
+| 500 Internal Server Error | Server error | `{"error": "Failed to list users"}` |
+
+#### Example Request
+
+```bash
+curl -X GET "http://localhost:8080/api/users?limit=20&offset=0&active=true" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
+### Get User By ID Endpoint
+
+#### Overview
+Retrieves detailed information about a specific user, including their groups and permissions. Users can access their own information without special permissions, or access any user with `users:read` permission.
+
+#### Endpoint Details
+
+**URL:** `GET /api/users/:id`  
+**Authentication:** Required (JWT Bearer token)  
+**Required Permission:** `users:read` (or accessing own user ID)
+
+#### URL Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | **Yes** | User ID |
+
+#### Response
+
+**Success Response (200 OK):**
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "username": "john.doe",
+  "email": "john@example.com",
+  "active": true,
+  "created_at": "2024-01-15T10:30:00Z",
+  "updated_at": "2024-01-15T10:30:00Z",
+  "groups": [
+    {
+      "id": "group-uuid-1",
+      "name": "Developers",
+      "description": "Development team",
+      "created_at": "2024-01-01T00:00:00Z"
+    }
+  ],
+  "permissions": [
+    {
+      "id": "perm-uuid-1",
+      "name": "users:read",
+      "description": "Read user data",
+      "created_at": "2024-01-01T00:00:00Z"
+    }
+  ]
+}
+```
+
+**Error Responses:**
+
+| Status Code | Description | Response Body |
+|-------------|-------------|---------------|
+| 401 Unauthorized | Missing or invalid token | `{"error": "Unauthorized"}` |
+| 403 Forbidden | Insufficient permissions | `{"error": "Insufficient permissions"}` |
+| 404 Not Found | User not found | `{"error": "User not found"}` |
+| 500 Internal Server Error | Server error | `{"error": "Failed to retrieve user"}` |
+
+#### Example Request
+
+```bash
+curl -X GET http://localhost:8080/api/users/550e8400-e29b-41d4-a716-446655440000 \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
+### Update User By ID Endpoint
+
+#### Overview
+Updates a user's information. Users can update their own email address without special permissions. Admin users with `users:write` permission can update any user's email and active status, but cannot deactivate the admin user.
+
+#### Endpoint Details
+
+**URL:** `PUT /api/users/:id`  
+**Content-Type:** `application/json`  
+**Authentication:** Required (JWT Bearer token)  
+**Required Permission:** `users:write` (or updating own email only)
+
+#### URL Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | **Yes** | User ID to update |
+
+#### Request Schema
+
+```json
+{
+  "email": "newemail@example.com",
+  "active": false
+}
+```
+
+#### Field Descriptions
+
+| Field | Type | Required | Self-Update | Admin Update | Description |
+|-------|------|----------|-------------|--------------|-------------|
+| `email` | string | No | ✅ | ✅ | User's email address (valid email format) |
+| `active` | boolean | No | ❌ | ✅ | Active status (true/false) |
+
+**Note:** Users updating their own record can only modify `email`. Only admins with `users:write` permission can modify `active` status.
+
+#### Response
+
+**Success Response (200 OK):**
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "username": "john.doe",
+  "email": "newemail@example.com",
+  "active": true,
+  "created_at": "2024-01-15T10:30:00Z",
+  "updated_at": "2024-01-20T14:25:00Z",
+  "groups": [...],
+  "permissions": [...]
+}
+```
+
+**Error Responses:**
+
+| Status Code | Description | Response Body |
+|-------------|-------------|---------------|
+| 400 Bad Request | Invalid request data | `{"error": "Invalid request"}` |
+| 401 Unauthorized | Missing or invalid token | `{"error": "Unauthorized"}` |
+| 403 Forbidden | Insufficient permissions or admin protection | `{"error": "Insufficient permissions"}` / `{"error": "Cannot deactivate admin user"}` |
+| 404 Not Found | User not found | `{"error": "User not found"}` |
+| 500 Internal Server Error | Server error | `{"error": "Failed to update user"}` |
+
+#### Example Requests
+
+```bash
+# Self-update email (no special permission needed)
+curl -X PUT http://localhost:8080/api/users/550e8400-e29b-41d4-a716-446655440000 \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "newemail@example.com"
+  }'
+
+# Admin update user status (requires users:write)
+curl -X PUT http://localhost:8080/api/users/550e8400-e29b-41d4-a716-446655440000 \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "newemail@example.com",
+    "active": false
+  }'
+```
+
+---
+
+### Delete User By ID Endpoint
+
+#### Overview
+Soft-deletes a user by setting their active status to false. This is a non-destructive operation that preserves user data for audit purposes. The admin user cannot be deleted.
+
+#### Endpoint Details
+
+**URL:** `DELETE /api/users/:id`  
+**Authentication:** Required (JWT Bearer token)  
+**Required Permission:** `users:write`
+
+#### URL Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | **Yes** | User ID to delete |
+
+#### Response
+
+**Success Response (204 No Content):**
+No response body.
+
+**Error Responses:**
+
+| Status Code | Description | Response Body |
+|-------------|-------------|---------------|
+| 401 Unauthorized | Missing or invalid token | `{"error": "Unauthorized"}` |
+| 403 Forbidden | Insufficient permissions or admin protection | `{"error": "Insufficient permissions"}` / `{"error": "Cannot delete admin user"}` |
+| 404 Not Found | User not found | `{"error": "User not found"}` |
+| 500 Internal Server Error | Server error | `{"error": "Failed to delete user"}` |
+
+#### Example Request
+
+```bash
+curl -X DELETE http://localhost:8080/api/users/550e8400-e29b-41d4-a716-446655440000 \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
+### Assign User To Group Endpoint
+
+#### Overview
+Assigns a user to a group, granting them all permissions associated with that group. Users can belong to multiple groups, and their effective permissions are the union of all group permissions.
+
+#### Endpoint Details
+
+**URL:** `POST /api/users/:id/groups`  
+**Content-Type:** `application/json`  
+**Authentication:** Required (JWT Bearer token)  
+**Required Permission:** `users:write`
+
+#### URL Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | **Yes** | User ID |
+
+#### Request Schema
+
+```json
+{
+  "group_id": "group-uuid-123"
+}
+```
+
+#### Field Descriptions
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `group_id` | UUID | **Yes** | Group ID to assign user to |
+
+#### Response
+
+**Success Response (204 No Content):**
+No response body.
+
+**Error Responses:**
+
+| Status Code | Description | Response Body |
+|-------------|-------------|---------------|
+| 400 Bad Request | Invalid request data | `{"error": "Invalid request"}` |
+| 401 Unauthorized | Missing or invalid token | `{"error": "Unauthorized"}` |
+| 403 Forbidden | Insufficient permissions | `{"error": "Insufficient permissions"}` |
+| 404 Not Found | User or group not found | `{"error": "User not found"}` / `{"error": "Group not found"}` |
+| 500 Internal Server Error | Server error | `{"error": "Failed to assign user to group"}` |
+
+#### Example Request
+
+```bash
+curl -X POST http://localhost:8080/api/users/550e8400-e29b-41d4-a716-446655440000/groups \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "group_id": "group-uuid-123"
+  }'
+```
+
+---
+
+### Remove User From Group Endpoint
+
+#### Overview
+Removes a user from a group, revoking the permissions associated with that group. The admin user cannot be removed from their groups.
+
+#### Endpoint Details
+
+**URL:** `DELETE /api/users/:id/groups/:groupId`  
+**Authentication:** Required (JWT Bearer token)  
+**Required Permission:** `users:write`
+
+#### URL Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | **Yes** | User ID |
+| `groupId` | UUID | **Yes** | Group ID to remove user from |
+
+#### Response
+
+**Success Response (204 No Content):**
+No response body.
+
+**Error Responses:**
+
+| Status Code | Description | Response Body |
+|-------------|-------------|---------------|
+| 401 Unauthorized | Missing or invalid token | `{"error": "Unauthorized"}` |
+| 403 Forbidden | Insufficient permissions or admin protection | `{"error": "Insufficient permissions"}` / `{"error": "Cannot remove admin user from groups"}` |
+| 404 Not Found | User or group not found | `{"error": "User not found"}` / `{"error": "Group not found"}` |
+| 500 Internal Server Error | Server error | `{"error": "Failed to remove user from group"}` |
+
+#### Example Request
+
+```bash
+curl -X DELETE http://localhost:8080/api/users/550e8400-e29b-41d4-a716-446655440000/groups/group-uuid-123 \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
+### List User Groups Endpoint
+
+#### Overview
+Retrieves a list of all groups a user belongs to. Users can access their own group memberships without special permissions, or access any user's groups with `users:read` permission.
+
+#### Endpoint Details
+
+**URL:** `GET /api/users/:id/groups`  
+**Authentication:** Required (JWT Bearer token)  
+**Required Permission:** `users:read` (or accessing own user ID)
+
+#### URL Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | **Yes** | User ID |
+
+#### Response
+
+**Success Response (200 OK):**
+```json
+{
+  "groups": [
+    {
+      "id": "group-uuid-1",
+      "name": "Developers",
+      "description": "Development team",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    },
+    {
+      "id": "group-uuid-2",
+      "name": "Admins",
+      "description": "System administrators",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  ]
+}
+```
+
+**Error Responses:**
+
+| Status Code | Description | Response Body |
+|-------------|-------------|---------------|
+| 401 Unauthorized | Missing or invalid token | `{"error": "Unauthorized"}` |
+| 403 Forbidden | Insufficient permissions | `{"error": "Insufficient permissions"}` |
+| 404 Not Found | User not found | `{"error": "User not found"}` |
+| 500 Internal Server Error | Server error | `{"error": "Failed to retrieve user groups"}` |
+
+#### Example Request
+
+```bash
+curl -X GET http://localhost:8080/api/users/550e8400-e29b-41d4-a716-446655440000/groups \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+---
