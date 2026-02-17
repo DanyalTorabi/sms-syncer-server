@@ -26,6 +26,11 @@ type Config struct {
 		Secret      string        `json:"secret"`
 		TokenExpiry time.Duration `json:"token_expiry"`
 	} `json:"jwt"`
+	Security struct {
+		// TOTPEncryptionKey is a 32-byte key for AES-256-GCM encryption of TOTP secrets
+		// #nosec G117 - Config loading only, never marshaled in responses
+		TOTPEncryptionKey string `json:"totp_encryption_key"`
+	} `json:"security"`
 	Logging struct {
 		Level string `json:"level"`
 		Path  string `json:"path"`
@@ -77,8 +82,9 @@ func DefaultConfig() *Config {
 	config.Server.Port = 8080
 	config.Server.Host = "localhost"
 	config.Database.DSN = "file:sms.db?cache=shared&mode=rwc"
-	config.JWT.Secret = "your-secret-key"  // This should be changed in production
-	config.JWT.TokenExpiry = 1 * time.Hour // 1-hour expiry as per ticket #69
+	config.JWT.Secret = "your-secret-key"                                  // This should be changed in production
+	config.JWT.TokenExpiry = 1 * time.Hour                                 // 1-hour expiry as per ticket #69
+	config.Security.TOTPEncryptionKey = "12345678901234567890123456789012" // 32-byte key, change in production
 	config.Logging.Level = "info"
 	config.Logging.Path = "server.log"
 	config.Seed.Enable = true

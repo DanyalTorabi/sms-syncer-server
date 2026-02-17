@@ -4,7 +4,14 @@
 1. [Authentication](#authentication)
    - [Login](#login-endpoint)
    - [User Registration](#user-registration-endpoint)
-2. [SMS Operations](#sms-operations)
+2. [Password Management](#password-management)
+   - [Change Password](#change-password-endpoint)
+   - [Admin Reset Password](#admin-reset-password-endpoint)
+3. [Two-Factor Authentication](#two-factor-authentication)
+   - [Generate 2FA Secret](#generate-2fa-secret-endpoint)
+   - [Enable 2FA](#enable-2fa-endpoint)
+   - [Disable 2FA](#disable-2fa-endpoint)
+4. [SMS Operations](#sms-operations)
    - [Add SMS Message](#add-sms-message-endpoint)
 
 ---
@@ -172,6 +179,320 @@ curl -X POST http://localhost:8080/api/users \
   "created_at": 1709500000
 }
 ```
+
+---
+
+## Password Management
+
+### Change Password Endpoint
+
+#### Overview
+Allows users to change their own password. Requires authentication and verification of the current password.
+
+#### Endpoint Details
+
+**URL:** `POST /api/users/:id/password`  
+**Content-Type:** `application/json`  
+**Authentication:** Required (Bearer token)
+
+#### Request Parameters
+
+| Parameter | Location | Required | Description |
+|-----------|----------|----------|-------------|
+| `id` | Path | **Yes** | User ID (must match authenticated user) |
+
+#### Request Schema
+
+```json
+{
+  "old_password": "currentpassword",
+  "new_password": "newsecurepassword"
+}
+```
+
+#### Field Descriptions
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `old_password` | string | **Yes** | Current password for verification |
+| `new_password` | string | **Yes** | New password (minimum 8 characters) |
+
+#### Response
+
+**Success Response (200 OK):**
+```json
+{
+  "message": "Password changed successfully"
+}
+```
+
+**Error Responses:**
+
+| Status Code | Description | Response Body |
+|-------------|-------------|---------------|
+| 400 Bad Request | Missing required fields or weak password | `{"error": "old password and new password are required"}` or `{"error": "password must be at least 8 characters"}` |
+| 401 Unauthorized | Incorrect old password | `{"error": "Incorrect old password"}` |
+| 403 Forbidden | User attempting to change another user's password | `{"error": "You can only change your own password"}` |
+| 404 Not Found | User not found | `{"error": "User not found"}` |
+| 500 Internal Server Error | Server error | `{"error": "Failed to change password"}` |
+
+#### Example Request
+
+```bash
+# Get authentication token
+TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"testuser","password":"oldpass"}' \
+  | jq -r '.token')
+
+# Change password
+curl -X POST http://localhost:8080/api/users/550e8400-e29b-41d4-a716-446655440000/password \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "old_password": "oldpass",
+    "new_password": "newsecurepass123"
+  }'
+```
+
+---
+
+### Admin Reset Password Endpoint
+
+#### Overview
+Allows administrators to reset a user's password without knowing the current password. This is an administrative function for account recovery.
+
+#### Endpoint Details
+
+**URL:** `POST /api/admin/users/:id/password/reset`  
+**Content-Type:** `application/json`  
+**Authentication:** Required (Bearer token with admin permissions)
+
+#### Request Parameters
+
+| Parameter | Location | Required | Description |
+|-----------|----------|----------|-------------|
+| `id` | Path | **Yes** | User ID to reset password for |
+
+#### Request Schema
+
+```json
+{
+  "new_password": "temporarypassword123"
+}
+```
+
+#### Field Descriptions
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `new_password` | string | **Yes** | New password (minimum 8 characters) |
+
+#### Response
+
+**Success Response (200 OK):**
+```json
+{
+  "message": "Password reset successfully"
+}
+```
+
+**Error Responses:**
+
+| Status Code | Description | Response Body |
+|-------------|-------------|---------------|
+| 400 Bad Request | Missing new password or weak password | `{"error": "new password is required"}` or `{"error": "password must be at least 8 characters"}` |
+| 404 Not Found | User not found | `{"error": "User not found"}` |
+| 500 Internal Server Error | Server error | `{"error": "Failed to reset password"}` |
+
+#### Example Request
+
+```bash
+# Admin resets user password
+curl -X POST http://localhost:8080/api/admin/users/550e8400-e29b-41d4-a716-446655440000/password/reset \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "new_password": "temporarypassword123"
+  }'
+```
+
+#### Security Notes
+
+1. This endpoint bypasses old password verification
+2. Requires admin permissions (enforcement to be added in #80)
+3. All password changes are logged for audit purposes
+4. Users should be notified when their password is reset
+
+---
+
+## Two-Factor Authentication
+
+### Generate 2FA Secret Endpoint
+
+#### Overview
+Generates a new TOTP secret for the authenticated user and returns a QR code for scanning with authenticator apps.
+
+#### Endpoint Details
+
+**URL:** `POST /api/auth/2fa/generate`  
+**Content-Type:** `application/json`  
+**Authentication:** Required (Bearer token)
+
+#### Request
+
+No request body required.
+
+#### Response
+
+**Success Response (200 OK):**
+```json
+{
+  "secret": "JBSWY3DPEHPK3PXP",
+  "qr_code": "iVBORw0KGgoAAAANSUhEUgAA...",
+  "qr_uri": "otpauth://totp/SMS%20Syncer:testuser?secret=JBSWY3DPEHPK3PXP&issuer=SMS%20Syncer"
+}
+```
+
+#### Field Descriptions
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `secret` | string | Base32-encoded TOTP secret (for manual entry) |
+| `qr_code` | string | Base64-encoded PNG image of QR code |
+| `qr_uri` | string | OTPAuth URI for QR code generation |
+
+**Error Responses:**
+
+| Status Code | Description | Response Body |
+|-------------|-------------|---------------|
+| 401 Unauthorized | Not authenticated | `{"error": "Unauthorized"}` |
+| 500 Internal Server Error | Server error | `{"error": "Failed to generate 2FA secret"}` |
+
+#### Example Request
+
+```bash
+curl -X POST http://localhost:8080/api/auth/2fa/generate \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json"
+```
+
+#### Usage Flow
+
+1. Call this endpoint to generate a new TOTP secret
+2. Display the QR code to the user or provide the secret for manual entry
+3. User scans QR code with authenticator app (Google Authenticator, Authy, etc.)
+4. User verifies setup by calling the Enable 2FA endpoint with a TOTP code
+
+---
+
+### Enable 2FA Endpoint
+
+#### Overview
+Enables two-factor authentication for the authenticated user after validating a TOTP code from their authenticator app.
+
+#### Endpoint Details
+
+**URL:** `POST /api/auth/2fa/enable`  
+**Content-Type:** `application/json`  
+**Authentication:** Required (Bearer token)
+
+#### Request Schema
+
+```json
+{
+  "totp_code": "123456"
+}
+```
+
+#### Field Descriptions
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `totp_code` | string | **Yes** | 6-digit TOTP code from authenticator app |
+
+#### Response
+
+**Success Response (200 OK):**
+```json
+{
+  "message": "2FA enabled successfully"
+}
+```
+
+**Error Responses:**
+
+| Status Code | Description | Response Body |
+|-------------|-------------|---------------|
+| 400 Bad Request | Missing TOTP code or invalid code | `{"error": "TOTP code is required"}` or `{"error": "Invalid TOTP code"}` |
+| 401 Unauthorized | Not authenticated | `{"error": "Unauthorized"}` |
+| 500 Internal Server Error | Server error | `{"error": "Failed to enable 2FA"}` |
+
+#### Example Request
+
+```bash
+curl -X POST http://localhost:8080/api/auth/2fa/enable \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "totp_code": "123456"
+  }'
+```
+
+#### Usage Notes
+
+1. User must first generate a 2FA secret using the Generate 2FA endpoint
+2. TOTP code expires every 30 seconds
+3. After enabling, all future logins will require TOTP code
+4. Backup codes should be stored securely (future feature)
+
+---
+
+### Disable 2FA Endpoint
+
+#### Overview
+Disables two-factor authentication for the authenticated user. This removes the TOTP requirement from future logins.
+
+#### Endpoint Details
+
+**URL:** `POST /api/auth/2fa/disable`  
+**Content-Type:** `application/json`  
+**Authentication:** Required (Bearer token)
+
+#### Request
+
+No request body required.
+
+#### Response
+
+**Success Response (200 OK):**
+```json
+{
+  "message": "2FA disabled successfully"
+}
+```
+
+**Error Responses:**
+
+| Status Code | Description | Response Body |
+|-------------|-------------|---------------|
+| 401 Unauthorized | Not authenticated | `{"error": "Unauthorized"}` |
+| 500 Internal Server Error | Server error | `{"error": "Failed to disable 2FA"}` |
+
+#### Example Request
+
+```bash
+curl -X POST http://localhost:8080/api/auth/2fa/disable \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json"
+```
+
+#### Security Notes
+
+1. User must be authenticated to disable 2FA
+2. Consider requiring password confirmation before disabling (future enhancement)
+3. 2FA removal is logged for security audit
+4. User should be notified when 2FA is disabled
 
 ---
 

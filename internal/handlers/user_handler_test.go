@@ -68,6 +68,11 @@ func (m *MockUserService) ChangePassword(id, oldPassword, newPassword string) er
 	return args.Error(0)
 }
 
+func (m *MockUserService) AdminSetPassword(id, newPassword string) error {
+	args := m.Called(id, newPassword)
+	return args.Error(0)
+}
+
 func (m *MockUserService) ListUsers(limit, offset int) ([]*models.User, error) {
 	args := m.Called(limit, offset)
 	if args.Get(0) == nil {
@@ -83,6 +88,21 @@ func (m *MockUserService) AssignToGroup(userID, groupID string) error {
 
 func (m *MockUserService) RemoveFromGroup(userID, groupID string) error {
 	args := m.Called(userID, groupID)
+	return args.Error(0)
+}
+
+func (m *MockUserService) GenerateTOTPSecret(userID string) (string, error) {
+	args := m.Called(userID)
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockUserService) EnableTOTP(userID, totpCode string) error {
+	args := m.Called(userID, totpCode)
+	return args.Error(0)
+}
+
+func (m *MockUserService) DisableTOTP(userID string) error {
+	args := m.Called(userID)
 	return args.Error(0)
 }
 

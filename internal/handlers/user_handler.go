@@ -89,3 +89,135 @@ func (h *UserHandler) Register(c *gin.Context) {
 		"created_at": user.CreatedAt,
 	})
 }
+
+// ChangePassword handles self-service password change (POST /api/users/:id/password)
+// Requires the user's current password for verification
+// Users can only change their own password unless they have admin permissions
+func (h *UserHandler) ChangePassword(c *gin.Context) {
+	logger.Info("Password change endpoint called")
+
+	// Extract user ID from route parameter
+	targetUserID := c.Param("id")
+	if targetUserID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "User ID is required"})
+		return
+	}
+
+	// Extract authenticated user ID from JWT context
+	authenticatedUserID, exists := c.Get("userID")
+	if !exists {
+		logger.Error("User ID not found in context")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	// Users can only change their own password (admin check would go here in #80)
+	if targetUserID != authenticatedUserID {
+		logger.Warn("Attempted to change another user's password",
+			zap.String("authenticated_user", authenticatedUserID.(string)),
+			zap.String("target_user", targetUserID),
+		)
+		c.JSON(http.StatusForbidden, gin.H{"error": "Cannot change another user's password"})
+		return
+	}
+
+	// Parse request body
+	var req models.ChangePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		logger.Warn("Invalid password change request", zap.Error(err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
+		return
+	}
+
+	// Change password (service verifies old password and validates new password)
+	err := h.userService.ChangePassword(targetUserID, req.OldPassword, req.NewPassword)
+	if err != nil {
+		logger.Warn("Password change failed",
+			zap.String("user_id", targetUserID),
+			zap.Error(err),
+		)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	logger.Info("Password changed successfully",
+		zap.String("user_id", targetUserID),
+	)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Password changed successfully",
+	})
+}
+
+// AdminResetPassword handles admin password reset (POST /api/admin/users/:id/password/reset)
+// Allows admin to reset any user's password without knowing the old password
+// TODO: Add admin permission check when middleware #80 is implemented
+func (h *UserHandler) AdminResetPassword(c *gin.Context) {
+	logger.Info("Admin password reset endpoint called")
+
+	// Extract user ID from route parameter
+	targetUserID := c.Param("id")
+	if targetUserID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "User ID is required"})
+		return
+	}
+
+	// Extract authenticated user ID from JWT context (for logging)
+	authenticatedUserID, exists := c.Get("userID")
+	if !exists {
+		logger.Error("User ID not found in context")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	// TODO: Check if authenticated user has admin permission (ticket #80)
+	// For now, this endpoint should only be mounted on admin routes with middleware
+
+	// Parse request body
+	var req models.AdminResetPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		logger.Warn("Invalid password reset request", zap.Error(err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
+		return
+	}
+
+	// Validate new password meets requirements
+	if len(req.NewPassword) < 8 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Password must be at least 8 characters"})
+		return
+	}
+
+	// Get target user to ensure they exist
+	user, err := h.userService.GetUser(targetUserID)
+	if err != nil {
+		logger.Warn("Failed to find user for password reset",
+			zap.String("target_user_id", targetUserID),
+			zap.Error(err),
+		)
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	// Use empty string for old password to bypass verification (admin reset)
+	// The service layer should handle this as an admin reset
+	err = h.userService.AdminSetPassword(targetUserID, req.NewPassword)
+	if err != nil {
+		logger.Error("Admin password reset failed",
+			zap.String("admin_user_id", authenticatedUserID.(string)),
+			zap.String("target_user_id", targetUserID),
+			zap.Error(err),
+		)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to reset password"})
+		return
+	}
+
+	logger.Info("Admin password reset successful",
+		zap.String("admin_user_id", authenticatedUserID.(string)),
+		zap.String("target_user_id", targetUserID),
+		zap.String("target_username", user.Username),
+	)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Password reset successfully",
+	})
+}

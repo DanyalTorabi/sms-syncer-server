@@ -50,7 +50,7 @@ func SetupServer(cfg *config.Config) (*http.Server, error) {
 	permissionRepo := db.NewPermissionRepository(database.GetDB())
 
 	// Initialize services
-	userService := services.NewUserService(userRepo)
+	userService := services.NewUserServiceWithEncryption(userRepo, cfg)
 	groupService := services.NewGroupService(groupRepo)
 	permissionService := services.NewPermissionService(permissionRepo, groupRepo)
 	smsService := services.NewSMSService(database)
@@ -96,6 +96,15 @@ func setupRoutes(
 		authGroup.POST("/login", authHandler.Login)
 	}
 
+	// Protected auth endpoints (2FA management)
+	protectedAuth := router.Group("/api/auth")
+	protectedAuth.Use(middleware.AuthMiddleware(cfg))
+	{
+		protectedAuth.POST("/2fa/generate", authHandler.Generate2FASecret)
+		protectedAuth.POST("/2fa/enable", authHandler.Enable2FA)
+		protectedAuth.POST("/2fa/disable", authHandler.Disable2FA)
+	}
+
 	// User registration endpoint (public)
 	usersGroup := router.Group("/api/users")
 	{
@@ -105,6 +114,20 @@ func setupRoutes(
 	// Protected routes group
 	protected := router.Group("/api")
 	protected.Use(middleware.AuthMiddleware(cfg))
+
+	// User management endpoints (protected)
+	protectedUsers := protected.Group("/users")
+	{
+		// Self-service password change
+		protectedUsers.POST("/:id/password", userHandler.ChangePassword)
+	}
+
+	// Admin routes (protected, TODO: add admin permission middleware in #80)
+	adminGroup := protected.Group("/admin")
+	{
+		// Admin password reset
+		adminGroup.POST("/users/:id/password/reset", userHandler.AdminResetPassword)
+	}
 
 	// SMS endpoint (protected)
 	protected.POST("/sms/add", func(c *gin.Context) {
