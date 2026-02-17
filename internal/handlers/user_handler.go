@@ -363,6 +363,73 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 	c.JSON(http.StatusOK, user.ToDetailResponse())
 }
 
+// validateUpdatePermissions checks if user has permission to update the target user
+func (h *UserHandler) validateUpdatePermissions(c *gin.Context, userID string, authenticatedUserID string, isSelf bool) bool {
+	if isSelf {
+		return true
+	}
+
+	permissions, _ := c.Get("permissions")
+	permList, _ := permissions.([]string)
+	if !hasPermission(permList, "users:write") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to update other users"})
+		return false
+	}
+	return true
+}
+
+// validateAdminProtection checks if the update would deactivate the admin user
+func (h *UserHandler) validateAdminProtection(c *gin.Context, userID string, req *models.UpdateUserRequest, isSelf bool) (*models.User, bool) {
+	if isSelf {
+		return nil, true
+	}
+
+	// For admin updates, verify user exists and check admin protection
+	user, err := h.userService.GetUser(userID)
+	if err != nil {
+		logger.Warn("Failed to find user for update",
+			zap.String("user_id", userID),
+			zap.Error(err),
+		)
+		if err.Error() == "user not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user"})
+		}
+		return nil, false
+	}
+
+	// Protect admin user from deactivation
+	if req.Active != nil && user.Username == "admin" && !*req.Active {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Cannot deactivate the admin user"})
+		return nil, false
+	}
+
+	return user, true
+}
+
+// buildUpdateMap builds the updates map based on permissions
+func buildUpdateMap(req *models.UpdateUserRequest, isSelf bool) map[string]interface{} {
+	updates := make(map[string]interface{})
+
+	if isSelf {
+		// Self-update: Can only change email
+		if req.Email != nil {
+			updates["email"] = *req.Email
+		}
+	} else {
+		// Admin update: Can change email, active status
+		if req.Active != nil {
+			updates["active"] = *req.Active
+		}
+		if req.Email != nil {
+			updates["email"] = *req.Email
+		}
+	}
+
+	return updates
+}
+
 // UpdateUserByID handles updating a user (PUT /api/users/:id)
 // Self-update: Can only change email
 // Admin update (users:write): Can change username, email, active status
@@ -386,14 +453,9 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 
 	isSelf := userID == authenticatedUserID.(string)
 
-	// Check permissions if not self
-	if !isSelf {
-		permissions, _ := c.Get("permissions")
-		permList, _ := permissions.([]string)
-		if !hasPermission(permList, "users:write") {
-			c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to update other users"})
-			return
-		}
+	// Check permissions
+	if !h.validateUpdatePermissions(c, userID, authenticatedUserID.(string), isSelf) {
+		return
 	}
 
 	// Parse request body
@@ -404,66 +466,25 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 		return
 	}
 
-	// Build updates map based on permissions - check early for self trying to change active
+	// Check early for self trying to change active status
 	if isSelf && req.Active != nil {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Cannot change active status for own account"})
 		return
 	}
 
-	// For admin updates, we need to verify the user exists and check admin protection
-	var needsUserCheck bool
-	if !isSelf {
-		needsUserCheck = req.Active != nil // Need to check admin protection
-	}
-
-	if needsUserCheck || !isSelf {
-		// Get target user for validation
-		user, err := h.userService.GetUser(userID)
-		if err != nil {
-			logger.Warn("Failed to find user for update",
-				zap.String("user_id", userID),
-				zap.Error(err),
-			)
-			if err.Error() == "user not found" {
-				c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-			} else {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user"})
-			}
-			return
-		}
-
-		// Protect admin user from deactivation
-		if req.Active != nil && user.Username == "admin" && !*req.Active {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Cannot deactivate the admin user"})
-			return
-		}
+	// Validate admin protection for non-self updates
+	if _, ok := h.validateAdminProtection(c, userID, &req, isSelf); !ok {
+		return
 	}
 
 	// Build updates map
-	updates := make(map[string]interface{})
-
-	if isSelf {
-		// Self-update: Can only change email
-		if req.Email != nil {
-			updates["email"] = *req.Email
-		}
-	} else {
-		// Admin update: Can change email, active status
-		if req.Active != nil {
-			updates["active"] = *req.Active
-		}
-
-		if req.Email != nil {
-			updates["email"] = *req.Email
-		}
-	}
-
-	// Perform update
+	updates := buildUpdateMap(&req, isSelf)
 	if len(updates) == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "No valid fields to update"})
 		return
 	}
 
+	// Perform update
 	err := h.userService.UpdateUser(userID, updates)
 	if err != nil {
 		logger.Error("Failed to update user",
