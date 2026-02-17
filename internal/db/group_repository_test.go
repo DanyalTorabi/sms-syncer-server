@@ -11,7 +11,7 @@ import (
 )
 
 func setupTestGroupRepository(t *testing.T) GroupRepository {
-	db := setupTestDB(t)
+	db := SetupTestDB(t)
 	return NewGroupRepository(db)
 }
 
@@ -515,7 +515,7 @@ func TestGroupRepository_AddPermission(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			db := setupTestDB(t)
+			db := SetupTestDB(t)
 			repo := NewGroupRepository(db)
 			permRepo := NewPermissionRepository(db)
 
@@ -608,7 +608,7 @@ func TestGroupRepository_RemovePermission(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			db := setupTestDB(t)
+			db := SetupTestDB(t)
 			repo := NewGroupRepository(db)
 			permRepo := NewPermissionRepository(db)
 
@@ -696,7 +696,7 @@ func TestGroupRepository_GetGroupPermissions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			db := setupTestDB(t)
+			db := SetupTestDB(t)
 			repo := NewGroupRepository(db)
 			permRepo := NewPermissionRepository(db)
 
@@ -755,7 +755,7 @@ func TestGroupRepository_GetGroupPermissions(t *testing.T) {
 
 // Integration test for full CRUD lifecycle
 func TestGroupRepository_IntegrationFullLifecycle(t *testing.T) {
-	db := setupTestDB(t)
+	db := SetupTestDB(t)
 	repo := NewGroupRepository(db)
 	permRepo := NewPermissionRepository(db)
 

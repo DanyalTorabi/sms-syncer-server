@@ -11,7 +11,7 @@ import (
 )
 
 func setupTestPermissionRepository(t *testing.T) PermissionRepository {
-	db := setupTestDB(t)
+	db := SetupTestDB(t)
 	return NewPermissionRepository(db)
 }
 
