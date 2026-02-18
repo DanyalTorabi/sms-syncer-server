@@ -285,3 +285,435 @@ func generateTokenWithInvalidExp() string {
 	tokenString, _ := token.SignedString([]byte(cfg.JWT.Secret))
 	return tokenString
 }
+
+// Test GenerateTokenWithPermissions
+func TestGenerateTokenWithPermissions(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.JWT.Secret = "test_secret"
+	cfg.JWT.TokenExpiry = time.Hour
+
+	tests := []struct {
+		name        string
+		userID      string
+		permissions []string
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name:        "valid token with permissions",
+			userID:      "user-123",
+			permissions: []string{"users:read", "users:write"},
+			wantErr:     false,
+		},
+		{
+			name:        "valid token with empty permissions",
+			userID:      "user-123",
+			permissions: []string{},
+			wantErr:     false,
+		},
+		{
+			name:        "valid token with nil permissions",
+			userID:      "user-123",
+			permissions: nil,
+			wantErr:     false,
+		},
+		{
+			name:        "missing user ID",
+			userID:      "",
+			permissions: []string{"users:read"},
+			wantErr:     true,
+			errContains: "user ID is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			token, err := GenerateTokenWithPermissions(tt.userID, tt.permissions, cfg)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errContains)
+				assert.Empty(t, token)
+			} else {
+				assert.NoError(t, err)
+				assert.NotEmpty(t, token)
+
+				// Verify token can be parsed and contains permissions
+				parsed, parseErr := jwt.ParseWithClaims(token, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+					return []byte(cfg.JWT.Secret), nil
+				})
+				assert.NoError(t, parseErr)
+				assert.True(t, parsed.Valid)
+
+				claims, ok := parsed.Claims.(*Claims)
+				assert.True(t, ok)
+				assert.Equal(t, tt.userID, claims.UserID)
+				// nil and empty slice are equivalent for permissions
+				if tt.permissions == nil {
+					assert.Nil(t, claims.Permissions)
+				} else if len(tt.permissions) == 0 {
+					// Accept either nil or empty slice
+					assert.True(t, claims.Permissions == nil || len(claims.Permissions) == 0)
+				} else {
+					assert.Equal(t, tt.permissions, claims.Permissions)
+				}
+			}
+		})
+	}
+}
+
+// Test RequirePermission middleware
+func TestRequirePermission(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name           string
+		permissions    []string
+		required       string
+		expectedStatus int
+		expectedError  string
+	}{
+		{
+			name:           "has required permission",
+			permissions:    []string{"users:read", "users:write"},
+			required:       "users:read",
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "does not have required permission",
+			permissions:    []string{"users:read"},
+			required:       "users:write",
+			expectedStatus: http.StatusForbidden,
+			expectedError:  "Insufficient permissions",
+		},
+		{
+			name:           "empty permissions list",
+			permissions:    []string{},
+			required:       "users:read",
+			expectedStatus: http.StatusForbidden,
+			expectedError:  "Insufficient permissions",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			router := gin.New()
+			router.GET("/test", func(c *gin.Context) {
+				c.Set("permissions", tt.permissions)
+				c.Next()
+			}, RequirePermission(tt.required), func(c *gin.Context) {
+				c.Status(http.StatusOK)
+			})
+
+			req := httptest.NewRequest(http.MethodGet, "/test", nil)
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+			if tt.expectedError != "" {
+				assert.Contains(t, w.Body.String(), tt.expectedError)
+			}
+		})
+	}
+}
+
+// Test RequireAnyPermission middleware
+func TestRequireAnyPermission(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name           string
+		permissions    []string
+		required       []string
+		expectedStatus int
+		expectedError  string
+	}{
+		{
+			name:           "has one of required permissions",
+			permissions:    []string{"users:read", "groups:read"},
+			required:       []string{"users:read", "users:write"},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "has all required permissions",
+			permissions:    []string{"users:read", "users:write"},
+			required:       []string{"users:read", "users:write"},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "does not have any required permission",
+			permissions:    []string{"groups:read"},
+			required:       []string{"users:read", "users:write"},
+			expectedStatus: http.StatusForbidden,
+			expectedError:  "Insufficient permissions",
+		},
+		{
+			name:           "empty permissions list",
+			permissions:    []string{},
+			required:       []string{"users:read"},
+			expectedStatus: http.StatusForbidden,
+			expectedError:  "Insufficient permissions",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			router := gin.New()
+			router.GET("/test", func(c *gin.Context) {
+				c.Set("permissions", tt.permissions)
+				c.Next()
+			}, RequireAnyPermission(tt.required...), func(c *gin.Context) {
+				c.Status(http.StatusOK)
+			})
+
+			req := httptest.NewRequest(http.MethodGet, "/test", nil)
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+			if tt.expectedError != "" {
+				assert.Contains(t, w.Body.String(), tt.expectedError)
+			}
+		})
+	}
+}
+
+// Test RequireAllPermissions middleware
+func TestRequireAllPermissions(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name           string
+		permissions    []string
+		required       []string
+		expectedStatus int
+		expectedError  string
+	}{
+		{
+			name:           "has all required permissions",
+			permissions:    []string{"users:read", "users:write", "groups:read"},
+			required:       []string{"users:read", "users:write"},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "missing one required permission",
+			permissions:    []string{"users:read"},
+			required:       []string{"users:read", "users:write"},
+			expectedStatus: http.StatusForbidden,
+			expectedError:  "Insufficient permissions",
+		},
+		{
+			name:           "missing all required permissions",
+			permissions:    []string{"groups:read"},
+			required:       []string{"users:read", "users:write"},
+			expectedStatus: http.StatusForbidden,
+			expectedError:  "Insufficient permissions",
+		},
+		{
+			name:           "empty permissions list",
+			permissions:    []string{},
+			required:       []string{"users:read"},
+			expectedStatus: http.StatusForbidden,
+			expectedError:  "Insufficient permissions",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			router := gin.New()
+			router.GET("/test", func(c *gin.Context) {
+				c.Set("permissions", tt.permissions)
+				c.Next()
+			}, RequireAllPermissions(tt.required...), func(c *gin.Context) {
+				c.Status(http.StatusOK)
+			})
+
+			req := httptest.NewRequest(http.MethodGet, "/test", nil)
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+			if tt.expectedError != "" {
+				assert.Contains(t, w.Body.String(), tt.expectedError)
+			}
+		})
+	}
+}
+
+// Test IsSelfOrHasPermission middleware
+func TestIsSelfOrHasPermission(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name           string
+		authUserID     string
+		resourceUserID string
+		permissions    []string
+		required       string
+		expectedStatus int
+		expectedError  string
+	}{
+		{
+			name:           "accessing own resource",
+			authUserID:     "user-123",
+			resourceUserID: "user-123",
+			permissions:    []string{},
+			required:       "users:write",
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "accessing other's resource with permission",
+			authUserID:     "user-123",
+			resourceUserID: "user-456",
+			permissions:    []string{"users:write"},
+			required:       "users:write",
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "accessing other's resource without permission",
+			authUserID:     "user-123",
+			resourceUserID: "user-456",
+			permissions:    []string{"users:read"},
+			required:       "users:write",
+			expectedStatus: http.StatusForbidden,
+			expectedError:  "Insufficient permissions",
+		},
+		{
+			name:           "accessing other's resource with empty permissions",
+			authUserID:     "user-123",
+			resourceUserID: "user-456",
+			permissions:    []string{},
+			required:       "users:write",
+			expectedStatus: http.StatusForbidden,
+			expectedError:  "Insufficient permissions",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			router := gin.New()
+			router.GET("/users/:id", func(c *gin.Context) {
+				c.Set("userID", tt.authUserID)
+				c.Set("permissions", tt.permissions)
+				c.Next()
+			}, IsSelfOrHasPermission(tt.required), func(c *gin.Context) {
+				c.Status(http.StatusOK)
+			})
+
+			req := httptest.NewRequest(http.MethodGet, "/users/"+tt.resourceUserID, nil)
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+			if tt.expectedError != "" {
+				assert.Contains(t, w.Body.String(), tt.expectedError)
+			}
+		})
+	}
+}
+
+// Test helper functions
+func TestHasPermission(t *testing.T) {
+	tests := []struct {
+		name        string
+		permissions []string
+		required    string
+		expected    bool
+	}{
+		{
+			name:        "has permission",
+			permissions: []string{"users:read", "users:write"},
+			required:    "users:read",
+			expected:    true,
+		},
+		{
+			name:        "does not have permission",
+			permissions: []string{"users:read"},
+			required:    "users:write",
+			expected:    false,
+		},
+		{
+			name:        "empty permissions",
+			permissions: []string{},
+			required:    "users:read",
+			expected:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := hasPermission(tt.permissions, tt.required)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestHasAnyPermission(t *testing.T) {
+	tests := []struct {
+		name        string
+		permissions []string
+		required    []string
+		expected    bool
+	}{
+		{
+			name:        "has one permission",
+			permissions: []string{"users:read"},
+			required:    []string{"users:read", "users:write"},
+			expected:    true,
+		},
+		{
+			name:        "has multiple permissions",
+			permissions: []string{"users:read", "users:write"},
+			required:    []string{"users:read", "groups:read"},
+			expected:    true,
+		},
+		{
+			name:        "does not have any",
+			permissions: []string{"groups:read"},
+			required:    []string{"users:read", "users:write"},
+			expected:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := hasAnyPermission(tt.permissions, tt.required...)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestHasAllPermissions(t *testing.T) {
+	tests := []struct {
+		name        string
+		permissions []string
+		required    []string
+		expected    bool
+	}{
+		{
+			name:        "has all permissions",
+			permissions: []string{"users:read", "users:write", "groups:read"},
+			required:    []string{"users:read", "users:write"},
+			expected:    true,
+		},
+		{
+			name:        "missing one permission",
+			permissions: []string{"users:read"},
+			required:    []string{"users:read", "users:write"},
+			expected:    false,
+		},
+		{
+			name:        "empty required",
+			permissions: []string{"users:read"},
+			required:    []string{},
+			expected:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := hasAllPermissions(tt.permissions, tt.required...)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
