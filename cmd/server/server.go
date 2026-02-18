@@ -86,6 +86,8 @@ func setupRoutes(
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(cfg, userService)
 	userHandler := handlers.NewUserHandler(userService)
+	groupHandler := handlers.NewGroupHandler(groupService)
+	permissionHandler := handlers.NewPermissionHandler(permissionService)
 
 	// Basic health check endpoint (public)
 	router.GET("/health", handleHealthCheck)
@@ -144,6 +146,44 @@ func setupRoutes(
 	{
 		// Admin password reset
 		adminGroup.POST("/users/:id/password/reset", userHandler.AdminResetPassword)
+	}
+
+	// Group management endpoints (protected)
+	protectedGroups := protected.Group("/groups")
+	{
+		// Create group (POST /api/groups)
+		protectedGroups.POST("", groupHandler.CreateGroup)
+
+		// List groups with pagination (GET /api/groups)
+		protectedGroups.GET("", groupHandler.ListGroups)
+
+		// Get group by ID (GET /api/groups/:id)
+		protectedGroups.GET("/:id", groupHandler.GetGroupByID)
+
+		// Update group (PUT /api/groups/:id)
+		protectedGroups.PUT("/:id", groupHandler.UpdateGroup)
+
+		// Delete group (DELETE /api/groups/:id)
+		protectedGroups.DELETE("/:id", groupHandler.DeleteGroup)
+	}
+
+	// Permission management endpoints (protected)
+	protectedPerms := protected.Group("/permissions")
+	{
+		// Create permission (POST /api/permissions)
+		protectedPerms.POST("", permissionHandler.CreatePermission)
+
+		// List permissions with pagination (GET /api/permissions)
+		protectedPerms.GET("", permissionHandler.ListPermissions)
+
+		// Get permission by ID (GET /api/permissions/:id)
+		protectedPerms.GET("/:id", permissionHandler.GetPermissionByID)
+
+		// Update permission (PUT /api/permissions/:id)
+		protectedPerms.PUT("/:id", permissionHandler.UpdatePermission)
+
+		// Delete permission (DELETE /api/permissions/:id)
+		protectedPerms.DELETE("/:id", permissionHandler.DeletePermission)
 	}
 
 	// SMS endpoint (protected)
