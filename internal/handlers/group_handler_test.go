@@ -603,3 +603,278 @@ func TestGroupHandler_DeleteGroup(t *testing.T) {
 		})
 	}
 }
+
+// TestGroupHandler_AddPermissionToGroup tests the AddPermissionToGroup handler
+func TestGroupHandler_AddPermissionToGroup(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name           string
+		groupID        string
+		requestBody    map[string]interface{}
+		permissions    []string
+		mockSetup      func(*MockGroupService)
+		expectedStatus int
+		checkResponse  func(*testing.T, map[string]interface{})
+	}{
+		{
+			name:    "successful permission assignment",
+			groupID: "group-123",
+			requestBody: map[string]interface{}{
+				"permission_id": "perm-456",
+			},
+			permissions: []string{"groups:write"},
+			mockSetup: func(m *MockGroupService) {
+				m.On("AddPermission", "group-123", "perm-456").Return(nil)
+			},
+			expectedStatus: http.StatusOK,
+			checkResponse: func(t *testing.T, response map[string]interface{}) {
+				assert.Equal(t, "Permission added to group successfully", response["message"])
+			},
+		},
+
+		{
+			name:           "invalid request format",
+			groupID:        "group-123",
+			requestBody:    map[string]interface{}{},
+			permissions:    []string{"groups:write"},
+			mockSetup:      func(m *MockGroupService) {},
+			expectedStatus: http.StatusBadRequest,
+			checkResponse: func(t *testing.T, response map[string]interface{}) {
+				assert.Contains(t, response["error"], "Invalid request format")
+			},
+		},
+		{
+			name:    "group not found",
+			groupID: "nonexistent",
+			requestBody: map[string]interface{}{
+				"permission_id": "perm-456",
+			},
+			permissions: []string{"groups:write"},
+			mockSetup: func(m *MockGroupService) {
+				m.On("AddPermission", "nonexistent", "perm-456").Return(errors.New("group not found"))
+			},
+			expectedStatus: http.StatusNotFound,
+			checkResponse: func(t *testing.T, response map[string]interface{}) {
+				assert.Equal(t, "Group not found", response["error"])
+			},
+		},
+		{
+			name:    "permission not found",
+			groupID: "group-123",
+			requestBody: map[string]interface{}{
+				"permission_id": "nonexistent",
+			},
+			permissions: []string{"groups:write"},
+			mockSetup: func(m *MockGroupService) {
+				m.On("AddPermission", "group-123", "nonexistent").Return(errors.New("permission not found"))
+			},
+			expectedStatus: http.StatusNotFound,
+			checkResponse: func(t *testing.T, response map[string]interface{}) {
+				assert.Equal(t, "Permission not found", response["error"])
+			},
+		},
+		{
+			name:    "permission already assigned",
+			groupID: "group-123",
+			requestBody: map[string]interface{}{
+				"permission_id": "perm-456",
+			},
+			permissions: []string{"groups:write"},
+			mockSetup: func(m *MockGroupService) {
+				m.On("AddPermission", "group-123", "perm-456").Return(errors.New("permission already assigned"))
+			},
+			expectedStatus: http.StatusConflict,
+			checkResponse: func(t *testing.T, response map[string]interface{}) {
+				assert.Equal(t, "Permission already assigned to group", response["error"])
+			},
+		},
+		{
+			name:    "insufficient permissions",
+			groupID: "group-123",
+			requestBody: map[string]interface{}{
+				"permission_id": "perm-456",
+			},
+			permissions:    []string{"groups:read"},
+			mockSetup:      func(m *MockGroupService) {},
+			expectedStatus: http.StatusForbidden,
+			checkResponse: func(t *testing.T, response map[string]interface{}) {
+				assert.Equal(t, "Insufficient permissions", response["error"])
+			},
+		},
+		{
+			name:    "service error",
+			groupID: "group-123",
+			requestBody: map[string]interface{}{
+				"permission_id": "perm-456",
+			},
+			permissions: []string{"groups:write"},
+			mockSetup: func(m *MockGroupService) {
+				m.On("AddPermission", "group-123", "perm-456").Return(errors.New("database error"))
+			},
+			expectedStatus: http.StatusInternalServerError,
+			checkResponse: func(t *testing.T, response map[string]interface{}) {
+				assert.Equal(t, "Failed to add permission to group", response["error"])
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockService := new(MockGroupService)
+			tt.mockSetup(mockService)
+
+			handler := NewGroupHandler(mockService)
+
+			router := gin.New()
+			router.POST("/groups/:id/permissions", func(c *gin.Context) {
+				c.Set("permissions", tt.permissions)
+				handler.AddPermissionToGroup(c)
+			})
+
+			body, _ := json.Marshal(tt.requestBody)
+			req := httptest.NewRequest(http.MethodPost, "/groups/"+tt.groupID+"/permissions", bytes.NewBuffer(body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+
+			if w.Code != http.StatusNoContent {
+				var response map[string]interface{}
+				err := json.Unmarshal(w.Body.Bytes(), &response)
+				assert.NoError(t, err)
+				tt.checkResponse(t, response)
+			}
+
+			mockService.AssertExpectations(t)
+		})
+	}
+}
+
+// TestGroupHandler_RemovePermissionFromGroup tests the RemovePermissionFromGroup handler
+func TestGroupHandler_RemovePermissionFromGroup(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name           string
+		groupID        string
+		permissionID   string
+		permissions    []string
+		mockSetup      func(*MockGroupService)
+		expectedStatus int
+		checkResponse  func(*testing.T, *httptest.ResponseRecorder)
+	}{
+		{
+			name:         "successful permission removal",
+			groupID:      "group-123",
+			permissionID: "perm-456",
+			permissions:  []string{"groups:write"},
+			mockSetup: func(m *MockGroupService) {
+				m.On("RemovePermission", "group-123", "perm-456").Return(nil)
+			},
+			expectedStatus: http.StatusNoContent,
+			checkResponse:  func(t *testing.T, w *httptest.ResponseRecorder) {},
+		},
+		{
+			name:         "group not found",
+			groupID:      "nonexistent",
+			permissionID: "perm-456",
+			permissions:  []string{"groups:write"},
+			mockSetup: func(m *MockGroupService) {
+				m.On("RemovePermission", "nonexistent", "perm-456").Return(errors.New("group not found"))
+			},
+			expectedStatus: http.StatusNotFound,
+			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder) {
+				var response map[string]interface{}
+				json.Unmarshal(w.Body.Bytes(), &response)
+				assert.Equal(t, "Group not found", response["error"])
+			},
+		},
+		{
+			name:         "permission not found",
+			groupID:      "group-123",
+			permissionID: "nonexistent",
+			permissions:  []string{"groups:write"},
+			mockSetup: func(m *MockGroupService) {
+				m.On("RemovePermission", "group-123", "nonexistent").Return(errors.New("permission not found"))
+			},
+			expectedStatus: http.StatusNotFound,
+			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder) {
+				var response map[string]interface{}
+				json.Unmarshal(w.Body.Bytes(), &response)
+				assert.Equal(t, "Permission not found", response["error"])
+			},
+		},
+		{
+			name:         "permission not assigned to group",
+			groupID:      "group-123",
+			permissionID: "perm-456",
+			permissions:  []string{"groups:write"},
+			mockSetup: func(m *MockGroupService) {
+				m.On("RemovePermission", "group-123", "perm-456").Return(errors.New("permission not assigned to group"))
+			},
+			expectedStatus: http.StatusNotFound,
+			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder) {
+				var response map[string]interface{}
+				json.Unmarshal(w.Body.Bytes(), &response)
+				assert.Equal(t, "Permission not assigned to group", response["error"])
+			},
+		},
+		{
+			name:           "insufficient permissions",
+			groupID:        "group-123",
+			permissionID:   "perm-456",
+			permissions:    []string{"groups:read"},
+			mockSetup:      func(m *MockGroupService) {},
+			expectedStatus: http.StatusForbidden,
+			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder) {
+				var response map[string]interface{}
+				json.Unmarshal(w.Body.Bytes(), &response)
+				assert.Equal(t, "Insufficient permissions", response["error"])
+			},
+		},
+		{
+			name:         "service error",
+			groupID:      "group-123",
+			permissionID: "perm-456",
+			permissions:  []string{"groups:write"},
+			mockSetup: func(m *MockGroupService) {
+				m.On("RemovePermission", "group-123", "perm-456").Return(errors.New("database error"))
+			},
+			expectedStatus: http.StatusInternalServerError,
+			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder) {
+				var response map[string]interface{}
+				json.Unmarshal(w.Body.Bytes(), &response)
+				assert.Equal(t, "Failed to remove permission from group", response["error"])
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockService := new(MockGroupService)
+			tt.mockSetup(mockService)
+
+			handler := NewGroupHandler(mockService)
+
+			router := gin.New()
+			router.DELETE("/groups/:id/permissions/:permissionId", func(c *gin.Context) {
+				c.Set("permissions", tt.permissions)
+				handler.RemovePermissionFromGroup(c)
+			})
+
+			url := "/groups/" + tt.groupID + "/permissions/" + tt.permissionID
+			req := httptest.NewRequest(http.MethodDelete, url, nil)
+			w := httptest.NewRecorder()
+
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+			tt.checkResponse(t, w)
+
+			mockService.AssertExpectations(t)
+		})
+	}
+}

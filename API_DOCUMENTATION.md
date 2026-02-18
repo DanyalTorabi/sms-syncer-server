@@ -27,6 +27,8 @@
    - [Get Group By ID](#get-group-by-id-endpoint)
    - [Update Group](#update-group-endpoint)
    - [Delete Group](#delete-group-endpoint)
+   - [Add Permission To Group](#add-permission-to-group-endpoint)
+   - [Remove Permission From Group](#remove-permission-from-group-endpoint)
 7. [Permission Management](#permission-management)
    - [Create Permission](#create-permission-endpoint)
    - [List Permissions](#list-permissions-endpoint)
@@ -1449,6 +1451,113 @@ No response body.
 
 ```bash
 curl -X DELETE http://localhost:8080/api/groups/550e8400-e29b-41d4-a716-446655440000 \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
+### Add Permission To Group Endpoint
+
+#### Overview
+Assigns a permission to a group, granting all users in that group the specified permission. This enables flexible role-based access control by managing permissions at the group level.
+
+#### Endpoint Details
+
+**URL:** `POST /api/groups/:id/permissions`  
+**Content-Type:** `application/json`  
+**Authentication:** Required (JWT Bearer token)  
+**Required Permission:** `groups:write`
+
+#### URL Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | **Yes** | Group ID |
+
+#### Request Schema
+
+```json
+{
+  "permission_id": "perm-uuid-123"
+}
+```
+
+#### Field Descriptions
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `permission_id` | UUID | **Yes** | Permission ID to assign to the group |
+
+#### Response
+
+**Success Response (200 OK):**
+```json
+{
+  "message": "Permission added to group successfully"
+}
+```
+
+**Error Responses:**
+
+| Status Code | Description | Response Body |
+|-------------|-------------|---------------|
+| 400 Bad Request | Invalid input data | `{"error": "Invalid request format"}` / `{"error": "Permission ID is required"}` |
+| 401 Unauthorized | Missing or invalid token | `{"error": "Unauthorized"}` |
+| 403 Forbidden | Insufficient permissions | `{"error": "Insufficient permissions"}` |
+| 404 Not Found | Group or permission not found | `{"error": "Group not found"}` / `{"error": "Permission not found"}` |
+| 409 Conflict | Permission already assigned | `{"error": "Permission already assigned to group"}` |
+| 500 Internal Server Error | Server error | `{"error": "Failed to add permission to group"}` |
+
+#### Example Request
+
+```bash
+curl -X POST http://localhost:8080/api/groups/550e8400-e29b-41d4-a716-446655440000/permissions \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "permission_id": "perm-uuid-123"
+  }'
+```
+
+---
+
+### Remove Permission From Group Endpoint
+
+#### Overview
+Removes a permission from a group, revoking that permission from all users who have it through this group membership. Users may still retain the permission through other group memberships.
+
+#### Endpoint Details
+
+**URL:** `DELETE /api/groups/:id/permissions/:permissionId`  
+**Authentication:** Required (JWT Bearer token)  
+**Required Permission:** `groups:write`
+
+#### URL Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | **Yes** | Group ID |
+| `permissionId` | UUID | **Yes** | Permission ID to remove from the group |
+
+#### Response
+
+**Success Response (204 No Content):**
+No response body.
+
+**Error Responses:**
+
+| Status Code | Description | Response Body |
+|-------------|-------------|---------------|
+| 400 Bad Request | Missing IDs | `{"error": "Group ID is required"}` / `{"error": "Permission ID is required"}` |
+| 401 Unauthorized | Missing or invalid token | `{"error": "Unauthorized"}` |
+| 403 Forbidden | Insufficient permissions | `{"error": "Insufficient permissions"}` |
+| 404 Not Found | Group, permission not found, or not assigned | `{"error": "Group not found"}` / `{"error": "Permission not found"}` / `{"error": "Permission not assigned to group"}` |
+| 500 Internal Server Error | Server error | `{"error": "Failed to remove permission from group"}` |
+
+#### Example Request
+
+```bash
+curl -X DELETE http://localhost:8080/api/groups/550e8400-e29b-41d4-a716-446655440000/permissions/perm-uuid-123 \
   -H "Authorization: Bearer $TOKEN"
 ```
 

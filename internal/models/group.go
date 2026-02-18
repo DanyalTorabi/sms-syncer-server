@@ -33,6 +33,11 @@ type UpdateGroupRequest struct {
 	Active      *bool   `json:"active,omitempty"`
 }
 
+// AssignPermissionRequest represents the request body for assigning a permission to a group
+type AssignPermissionRequest struct {
+	PermissionID string `json:"permission_id" binding:"required"`
+}
+
 // NewGroup creates a new Group with generated UUID and timestamps
 func NewGroup(name, description string) *Group {
 	now := time.Now().Unix()

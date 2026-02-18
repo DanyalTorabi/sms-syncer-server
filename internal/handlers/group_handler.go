@@ -251,3 +251,122 @@ func (h *GroupHandler) DeleteGroup(c *gin.Context) {
 	logger.Info("Group deleted successfully", zap.String("group_id", groupID))
 	c.JSON(http.StatusNoContent, nil)
 }
+
+// AddPermissionToGroup handles adding a permission to a group (POST /api/groups/:id/permissions)
+// Requires groups:write permission
+func (h *GroupHandler) AddPermissionToGroup(c *gin.Context) {
+	logger.Info("Add permission to group endpoint called")
+
+	// Check permissions
+	permissions, _ := c.Get("permissions")
+	permList, _ := permissions.([]string)
+	if !hasPermission(permList, "groups:write") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
+		return
+	}
+
+	// Get group ID from path
+	groupID := c.Param("id")
+	if groupID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Group ID is required"})
+		return
+	}
+
+	// Parse request body
+	var req models.AssignPermissionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		logger.Warn("Invalid assign permission request", zap.Error(err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
+		return
+	}
+
+	// Validate permission ID
+	if req.PermissionID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Permission ID is required"})
+		return
+	}
+
+	// Add permission to group
+	err := h.groupService.AddPermission(groupID, req.PermissionID)
+	if err != nil {
+		logger.Error("Failed to add permission to group",
+			zap.String("group_id", groupID),
+			zap.String("permission_id", req.PermissionID),
+			zap.Error(err),
+		)
+		if err.Error() == "group not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Group not found"})
+		} else if err.Error() == "permission not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Permission not found"})
+		} else if strings.Contains(err.Error(), "already assigned") || strings.Contains(err.Error(), "already has") {
+			c.JSON(http.StatusConflict, gin.H{"error": "Permission already assigned to group"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add permission to group"})
+		}
+		return
+	}
+
+	logger.Info("Permission added to group successfully",
+		zap.String("group_id", groupID),
+		zap.String("permission_id", req.PermissionID),
+	)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Permission added to group successfully",
+	})
+}
+
+// RemovePermissionFromGroup handles removing a permission from a group (DELETE /api/groups/:id/permissions/:permissionId)
+// Requires groups:write permission
+func (h *GroupHandler) RemovePermissionFromGroup(c *gin.Context) {
+	logger.Info("Remove permission from group endpoint called")
+
+	// Check permissions
+	permissions, _ := c.Get("permissions")
+	permList, _ := permissions.([]string)
+	if !hasPermission(permList, "groups:write") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
+		return
+	}
+
+	// Get group ID and permission ID from path
+	groupID := c.Param("id")
+	permissionID := c.Param("permissionId")
+
+	if groupID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Group ID is required"})
+		return
+	}
+
+	if permissionID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Permission ID is required"})
+		return
+	}
+
+	// Remove permission from group
+	err := h.groupService.RemovePermission(groupID, permissionID)
+	if err != nil {
+		logger.Error("Failed to remove permission from group",
+			zap.String("group_id", groupID),
+			zap.String("permission_id", permissionID),
+			zap.Error(err),
+		)
+		if err.Error() == "group not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Group not found"})
+		} else if err.Error() == "permission not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Permission not found"})
+		} else if strings.Contains(err.Error(), "not assigned") || strings.Contains(err.Error(), "does not have") {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Permission not assigned to group"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove permission from group"})
+		}
+		return
+	}
+
+	logger.Info("Permission removed from group successfully",
+		zap.String("group_id", groupID),
+		zap.String("permission_id", permissionID),
+	)
+
+	c.JSON(http.StatusNoContent, nil)
+}
