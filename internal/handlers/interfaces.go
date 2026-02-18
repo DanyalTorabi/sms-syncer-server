@@ -24,3 +24,25 @@ type UserServiceInterface interface {
 	EnableTOTP(userID, totpCode string) error
 	DisableTOTP(userID string) error
 }
+
+// GroupServiceInterface defines the contract for group service operations
+// This interface is used for dependency injection and testing
+type GroupServiceInterface interface {
+	CreateGroup(name, description string) (*models.Group, error)
+	GetGroup(id string) (*models.Group, error)
+	UpdateGroup(id string, updates map[string]interface{}) error
+	DeleteGroup(id string) error
+	ListGroups(limit, offset int) ([]*models.Group, error)
+	AddPermission(groupID, permissionID string) error
+	RemovePermission(groupID, permissionID string) error
+}
+
+// PermissionServiceInterface defines the contract for permission service operations
+// This interface is used for dependency injection and testing
+type PermissionServiceInterface interface {
+	CreatePermission(name, resource, action, description string) (*models.Permission, error)
+	GetPermission(id string) (*models.Permission, error)
+	UpdatePermission(id string, updates map[string]interface{}) error
+	DeletePermission(id string) error
+	ListPermissions(limit, offset int) ([]*models.Permission, error)
+}

@@ -21,6 +21,18 @@
    - [Assign User To Group](#assign-user-to-group-endpoint)
    - [Remove User From Group](#remove-user-from-group-endpoint)
    - [List User Groups](#list-user-groups-endpoint)
+6. [Group Management](#group-management)
+   - [Create Group](#create-group-endpoint)
+   - [List Groups](#list-groups-endpoint)
+   - [Get Group By ID](#get-group-by-id-endpoint)
+   - [Update Group](#update-group-endpoint)
+   - [Delete Group](#delete-group-endpoint)
+7. [Permission Management](#permission-management)
+   - [Create Permission](#create-permission-endpoint)
+   - [List Permissions](#list-permissions-endpoint)
+   - [Get Permission By ID](#get-permission-by-id-endpoint)
+   - [Update Permission](#update-permission-endpoint)
+   - [Delete Permission](#delete-permission-endpoint)
 
 ---
 
@@ -1133,6 +1145,611 @@ Retrieves a list of all groups a user belongs to. Users can access their own gro
 
 ```bash
 curl -X GET http://localhost:8080/api/users/550e8400-e29b-41d4-a716-446655440000/groups \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+---
+---
+
+## Group Management
+
+### Create Group Endpoint
+
+#### Overview
+Creates a new group in the system. Groups are collections of permissions that can be assigned to users.
+
+#### Endpoint Details
+
+**URL:** `POST /api/groups`  
+**Content-Type:** `application/json`  
+**Authentication:** Required (JWT Bearer token)  
+**Required Permission:** `groups:write`
+
+#### Request Schema
+
+```json
+{
+  "name": "Developers",
+  "description": "Development team members"
+}
+```
+
+#### Field Descriptions
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | **Yes** | Group name (3-100 characters, must be unique) |
+| `description` | string | No | Optional description of the group |
+
+#### Response
+
+**Success Response (201 Created):**
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "Developers",
+  "description": "Development team members",
+  "active": true,
+  "created_at": 1692864000,
+  "updated_at": 1692864000,
+  "permissions": []
+}
+```
+
+**Error Responses:**
+
+| Status Code | Description | Response Body |
+|-------------|-------------|---------------|
+| 400 Bad Request | Invalid input data | `{"error": "Invalid request format"}` |
+| 401 Unauthorized | Missing or invalid token | `{"error": "Unauthorized"}` |
+| 403 Forbidden | Insufficient permissions | `{"error": "Insufficient permissions"}` |
+| 409 Conflict | Group name already exists | `{"error": "group already exists"}` |
+
+#### Example Request
+
+```bash
+curl -X POST http://localhost:8080/api/groups \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Developers",
+    "description": "Development team members"
+  }'
+```
+
+---
+
+### List Groups Endpoint
+
+#### Overview
+Retrieves a paginated list of all groups in the system.
+
+#### Endpoint Details
+
+**URL:** `GET /api/groups`  
+**Authentication:** Required (JWT Bearer token)  
+**Required Permission:** `groups:read`
+
+#### Query Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `limit` | integer | No | 50 | Number of groups per page (max: 100) |
+| `offset` | integer | No | 0 | Number of groups to skip |
+
+#### Response
+
+**Success Response (200 OK):**
+```json
+{
+  "groups": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "name": "Developers",
+      "description": "Development team",
+      "active": true,
+      "created_at": 1692864000,
+      "updated_at": 1692864000
+    },
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440001",
+      "name": "Admins",
+      "description": "System administrators",
+      "active": true,
+      "created_at": 1692864000,
+      "updated_at": 1692864000
+    }
+  ],
+  "limit": 50,
+  "offset": 0
+}
+```
+
+**Error Responses:**
+
+| Status Code | Description | Response Body |
+|-------------|-------------|---------------|
+| 401 Unauthorized | Missing or invalid token | `{"error": "Unauthorized"}` |
+| 403 Forbidden | Insufficient permissions | `{"error": "Insufficient permissions"}` |
+| 500 Internal Server Error | Server error | `{"error": "Failed to list groups"}` |
+
+#### Example Request
+
+```bash
+curl -X GET "http://localhost:8080/api/groups?limit=20&offset=0" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
+### Get Group By ID Endpoint
+
+#### Overview
+Retrieves detailed information about a specific group, including its associated permissions.
+
+#### Endpoint Details
+
+**URL:** `GET /api/groups/:id`  
+**Authentication:** Required (JWT Bearer token)  
+**Required Permission:** `groups:read`
+
+#### URL Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | **Yes** | Group ID |
+
+#### Response
+
+**Success Response (200 OK):**
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "Developers",
+  "description": "Development team",
+  "active": true,
+  "created_at": 1692864000,
+  "updated_at": 1692864000,
+  "permissions": [
+    {
+      "id": "perm-uuid-1",
+      "name": "users:read",
+      "resource": "users",
+      "action": "read",
+      "description": "Read user data",
+      "active": true,
+      "created_at": 1692864000
+    }
+  ]
+}
+```
+
+**Error Responses:**
+
+| Status Code | Description | Response Body |
+|-------------|-------------|---------------|
+| 401 Unauthorized | Missing or invalid token | `{"error": "Unauthorized"}` |
+| 403 Forbidden | Insufficient permissions | `{"error": "Insufficient permissions"}` |
+| 404 Not Found | Group not found | `{"error": "Group not found"}` |
+| 500 Internal Server Error | Server error | `{"error": "Failed to retrieve group"}` |
+
+#### Example Request
+
+```bash
+curl -X GET http://localhost:8080/api/groups/550e8400-e29b-41d4-a716-446655440000 \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
+### Update Group Endpoint
+
+#### Overview
+Updates a group's information. Can modify name, description, and active status.
+
+#### Endpoint Details
+
+**URL:** `PUT /api/groups/:id`  
+**Content-Type:** `application/json`  
+**Authentication:** Required (JWT Bearer token)  
+**Required Permission:** `groups:write`
+
+#### URL Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | **Yes** | Group ID to update |
+
+#### Request Schema
+
+```json
+{
+  "name": "Senior Developers",
+  "description": "Updated description",
+  "active": true
+}
+```
+
+#### Field Descriptions
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | No | Group name (3-100 characters, must be unique) |
+| `description` | string | No | Group description |
+| `active` | boolean | No | Active status (true/false) |
+
+**Note:** At least one field must be provided to update.
+
+#### Response
+
+**Success Response (200 OK):**
+```json
+{
+  "message": "Group updated successfully"
+}
+```
+
+**Error Responses:**
+
+| Status Code | Description | Response Body |
+|-------------|-------------|---------------|
+| 400 Bad Request | Invalid input or no fields to update | `{"error": "No valid fields to update"}` |
+| 401 Unauthorized | Missing or invalid token | `{"error": "Unauthorized"}` |
+| 403 Forbidden | Insufficient permissions | `{"error": "Insufficient permissions"}` |
+| 404 Not Found | Group not found | `{"error": "Group not found"}` |
+| 409 Conflict | Name already exists | `{"error": "group name already exists"}` |
+| 500 Internal Server Error | Server error | `{"error": "Failed to update group"}` |
+
+#### Example Request
+
+```bash
+curl -X PUT http://localhost:8080/api/groups/550e8400-e29b-41d4-a716-446655440000 \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Senior Developers",
+    "description": "Updated description"
+  }'
+```
+
+---
+
+### Delete Group Endpoint
+
+#### Overview
+Deletes a group from the system. The admin group cannot be deleted for security reasons.
+
+#### Endpoint Details
+
+**URL:** `DELETE /api/groups/:id`  
+**Authentication:** Required (JWT Bearer token)  
+**Required Permission:** `groups:write`
+
+#### URL Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | **Yes** | Group ID to delete |
+
+#### Response
+
+**Success Response (204 No Content):**
+No response body.
+
+**Error Responses:**
+
+| Status Code | Description | Response Body |
+|-------------|-------------|---------------|
+| 401 Unauthorized | Missing or invalid token | `{"error": "Unauthorized"}` |
+| 403 Forbidden | Insufficient permissions or admin group | `{"error": "Insufficient permissions"}` / `{"error": "admin group cannot be deleted"}` |
+| 404 Not Found | Group not found | `{"error": "Group not found"}` |
+| 500 Internal Server Error | Server error | `{"error": "Failed to delete group"}` |
+
+#### Example Request
+
+```bash
+curl -X DELETE http://localhost:8080/api/groups/550e8400-e29b-41d4-a716-446655440000 \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
+## Permission Management
+
+### Create Permission Endpoint
+
+#### Overview
+Creates a new permission in the system. Permissions follow the `resource:action` naming convention (e.g., `users:read`, `groups:write`).
+
+#### Endpoint Details
+
+**URL:** `POST /api/permissions`  
+**Content-Type:** `application/json`  
+**Authentication:** Required (JWT Bearer token)  
+**Required Permission:** `permissions:write`
+
+#### Request Schema
+
+```json
+{
+  "name": "users:read",
+  "resource": "users",
+  "action": "read",
+  "description": "Permission to read user data"
+}
+```
+
+#### Field Descriptions
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | **Yes** | Permission name (must match `resource:action` format, 3-100 characters, unique) |
+| `resource` | string | **Yes** | Resource type (e.g., "users", "groups", "sms") |
+| `action` | string | **Yes** | Action type (e.g., "read", "write", "delete") |
+| `description` | string | No | Optional description of what the permission allows |
+
+**Note:** The `name` field must match the format `resource:action`. The service layer validates this requirement.
+
+#### Response
+
+**Success Response (201 Created):**
+```json
+{
+  "id": "perm-uuid-1",
+  "name": "users:read",
+  "resource": "users",
+  "action": "read",
+  "description": "Permission to read user data",
+  "active": true,
+  "created_at": 1692864000
+}
+```
+
+**Error Responses:**
+
+| Status Code | Description | Response Body |
+|-------------|-------------|---------------|
+| 400 Bad Request | Invalid input or format | `{"error": "Invalid request format"}` / `{"error": "permission name must match format resource:action"}` |
+| 401 Unauthorized | Missing or invalid token | `{"error": "Unauthorized"}` |
+| 403 Forbidden | Insufficient permissions | `{"error": "Insufficient permissions"}` |
+| 409 Conflict | Permission already exists | `{"error": "permission already exists"}` |
+
+#### Example Request
+
+```bash
+curl -X POST http://localhost:8080/api/permissions \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "users:read",
+    "resource": "users",
+    "action": "read",
+    "description": "Permission to read user data"
+  }'
+```
+
+---
+
+### List Permissions Endpoint
+
+#### Overview
+Retrieves a paginated list of all permissions in the system.
+
+#### Endpoint Details
+
+**URL:** `GET /api/permissions`  
+**Authentication:** Required (JWT Bearer token)  
+**Required Permission:** `permissions:read`
+
+#### Query Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `limit` | integer | No | 50 | Number of permissions per page (max: 100) |
+| `offset` | integer | No | 0 | Number of permissions to skip |
+
+#### Response
+
+**Success Response (200 OK):**
+```json
+{
+  "permissions": [
+    {
+      "id": "perm-uuid-1",
+      "name": "users:read",
+      "resource": "users",
+      "action": "read",
+      "description": "Read user data",
+      "active": true,
+      "created_at": 1692864000
+    },
+    {
+      "id": "perm-uuid-2",
+      "name": "users:write",
+      "resource": "users",
+      "action": "write",
+      "description": "Write user data",
+      "active": true,
+      "created_at": 1692864000
+    }
+  ],
+  "limit": 50,
+  "offset": 0
+}
+```
+
+**Error Responses:**
+
+| Status Code | Description | Response Body |
+|-------------|-------------|---------------|
+| 401 Unauthorized | Missing or invalid token | `{"error": "Unauthorized"}` |
+| 403 Forbidden | Insufficient permissions | `{"error": "Insufficient permissions"}` |
+| 500 Internal Server Error | Server error | `{"error": "Failed to list permissions"}` |
+
+#### Example Request
+
+```bash
+curl -X GET "http://localhost:8080/api/permissions?limit=20&offset=0" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
+### Get Permission By ID Endpoint
+
+#### Overview
+Retrieves detailed information about a specific permission.
+
+#### Endpoint Details
+
+**URL:** `GET /api/permissions/:id`  
+**Authentication:** Required (JWT Bearer token)  
+**Required Permission:** `permissions:read`
+
+#### URL Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | **Yes** | Permission ID |
+
+#### Response
+
+**Success Response (200 OK):**
+```json
+{
+  "id": "perm-uuid-1",
+  "name": "users:read",
+  "resource": "users",
+  "action": "read",
+  "description": "Permission to read user data",
+  "active": true,
+  "created_at": 1692864000
+}
+```
+
+**Error Responses:**
+
+| Status Code | Description | Response Body |
+|-------------|-------------|---------------|
+| 401 Unauthorized | Missing or invalid token | `{"error": "Unauthorized"}` |
+| 403 Forbidden | Insufficient permissions | `{"error": "Insufficient permissions"}` |
+| 404 Not Found | Permission not found | `{"error": "Permission not found"}` |
+| 500 Internal Server Error | Server error | `{"error": "Failed to retrieve permission"}` |
+
+#### Example Request
+
+```bash
+curl -X GET http://localhost:8080/api/permissions/perm-uuid-1 \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
+### Update Permission Endpoint
+
+#### Overview
+Updates a permission's information. Only description and active status can be modified. The name, resource, and action fields are immutable to maintain permission integrity.
+
+#### Endpoint Details
+
+**URL:** `PUT /api/permissions/:id`  
+**Content-Type:** `application/json`  
+**Authentication:** Required (JWT Bearer token)  
+**Required Permission:** `permissions:write`
+
+#### URL Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | **Yes** | Permission ID to update |
+
+#### Request Schema
+
+```json
+{
+  "description": "Updated description",
+  "active": true
+}
+```
+
+#### Field Descriptions
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `description` | string | No | Updated description |
+| `active` | boolean | No | Active status (true/false) |
+
+**Note:** At least one field must be provided. Name, resource, and action cannot be changed after creation.
+
+#### Response
+
+**Success Response (200 OK):**
+```json
+{
+  "message": "Permission updated successfully"
+}
+```
+
+**Error Responses:**
+
+| Status Code | Description | Response Body |
+|-------------|-------------|---------------|
+| 400 Bad Request | No fields to update | `{"error": "No valid fields to update"}` |
+| 401 Unauthorized | Missing or invalid token | `{"error": "Unauthorized"}` |
+| 403 Forbidden | Insufficient permissions | `{"error": "Insufficient permissions"}` |
+| 404 Not Found | Permission not found | `{"error": "Permission not found"}` |
+| 500 Internal Server Error | Server error | `{"error": "Failed to update permission"}` |
+
+#### Example Request
+
+```bash
+curl -X PUT http://localhost:8080/api/permissions/perm-uuid-1 \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "description": "Updated description",
+    "active": true
+  }'
+```
+
+---
+
+### Delete Permission Endpoint
+
+#### Overview
+Deletes a permission from the system. Permissions that are currently assigned to groups cannot be deleted to maintain system integrity.
+
+#### Endpoint Details
+
+**URL:** `DELETE /api/permissions/:id`  
+**Authentication:** Required (JWT Bearer token)  
+**Required Permission:** `permissions:write`
+
+#### URL Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | UUID | **Yes** | Permission ID to delete |
+
+#### Response
+
+**Success Response (204 No Content):**
+No response body.
+
+**Error Responses:**
+
+| Status Code | Description | Response Body |
+|-------------|-------------|---------------|
+| 401 Unauthorized | Missing or invalid token | `{"error": "Unauthorized"}` |
+| 403 Forbidden | Insufficient permissions | `{"error": "Insufficient permissions"}` |
+| 404 Not Found | Permission not found | `{"error": "Permission not found"}` |
+| 409 Conflict | Permission in use by groups | `{"error": "permission is in use by groups"}` |
+| 500 Internal Server Error | Server error | `{"error": "Failed to delete permission"}` |
+
+#### Example Request
+
+```bash
+curl -X DELETE http://localhost:8080/api/permissions/perm-uuid-1 \
   -H "Authorization: Bearer $TOKEN"
 ```
 
