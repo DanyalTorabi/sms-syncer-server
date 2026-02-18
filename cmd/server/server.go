@@ -165,6 +165,12 @@ func setupRoutes(
 
 		// Delete group (DELETE /api/groups/:id)
 		protectedGroups.DELETE("/:id", groupHandler.DeleteGroup)
+
+		// Add permission to group (POST /api/groups/:id/permissions)
+		protectedGroups.POST("/:id/permissions", groupHandler.AddPermissionToGroup)
+
+		// Remove permission from group (DELETE /api/groups/:id/permissions/:permissionId)
+		protectedGroups.DELETE("/:id/permissions/:permissionId", groupHandler.RemovePermissionFromGroup)
 	}
 
 	// Permission management endpoints (protected)
