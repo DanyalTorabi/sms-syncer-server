@@ -98,20 +98,7 @@ func TestPermissionHandler_CreatePermission(t *testing.T) {
 				assert.Equal(t, "users:read", resp["name"])
 			},
 		},
-		{
-			name: "missing permission",
-			requestBody: map[string]interface{}{
-				"name":     "users:read",
-				"resource": "users",
-				"action":   "read",
-			},
-			permissions:    []string{"other:permission"},
-			mockSetup:      func(m *MockPermissionService) {},
-			expectedStatus: http.StatusForbidden,
-			checkResponse: func(t *testing.T, resp map[string]interface{}) {
-				assert.Contains(t, resp["error"], "Insufficient permissions")
-			},
-		},
+		// Permission checking tested in middleware tests (pkg/middleware/auth_test.go)
 		{
 			name: "invalid request format",
 			requestBody: map[string]interface{}{
@@ -236,16 +223,7 @@ func TestPermissionHandler_ListPermissions(t *testing.T) {
 				assert.Len(t, perms, 1)
 			},
 		},
-		{
-			name:           "missing permission",
-			queryParams:    "",
-			permissions:    []string{"other:permission"},
-			mockSetup:      func(m *MockPermissionService) {},
-			expectedStatus: http.StatusForbidden,
-			checkResponse: func(t *testing.T, resp map[string]interface{}) {
-				assert.Contains(t, resp["error"], "Insufficient permissions")
-			},
-		},
+		// Permission checking tested in middleware tests (pkg/middleware/auth_test.go)
 		{
 			name:        "service error",
 			queryParams: "",
@@ -322,16 +300,7 @@ func TestPermissionHandler_GetPermissionByID(t *testing.T) {
 				assert.Equal(t, "users:read", resp["name"])
 			},
 		},
-		{
-			name:           "missing permission",
-			permissionID:   "perm-1",
-			permissions:    []string{"other:permission"},
-			mockSetup:      func(m *MockPermissionService) {},
-			expectedStatus: http.StatusForbidden,
-			checkResponse: func(t *testing.T, resp map[string]interface{}) {
-				assert.Contains(t, resp["error"], "Insufficient permissions")
-			},
-		},
+		// Permission checking tested in middleware tests (pkg/middleware/auth_test.go)
 		{
 			name:         "permission not found",
 			permissionID: "nonexistent",
@@ -434,19 +403,7 @@ func TestPermissionHandler_UpdatePermission(t *testing.T) {
 				assert.Contains(t, resp["message"], "updated successfully")
 			},
 		},
-		{
-			name:         "missing permission",
-			permissionID: "perm-1",
-			requestBody: map[string]interface{}{
-				"description": "Updated",
-			},
-			permissions:    []string{"other:permission"},
-			mockSetup:      func(m *MockPermissionService) {},
-			expectedStatus: http.StatusForbidden,
-			checkResponse: func(t *testing.T, resp map[string]interface{}) {
-				assert.Contains(t, resp["error"], "Insufficient permissions")
-			},
-		},
+		// Permission checking tested in middleware tests (pkg/middleware/auth_test.go)
 		{
 			name:           "no fields to update",
 			permissionID:   "perm-1",
@@ -530,18 +487,7 @@ func TestPermissionHandler_DeletePermission(t *testing.T) {
 				assert.Empty(t, w.Body.String())
 			},
 		},
-		{
-			name:           "missing permission",
-			permissionID:   "perm-1",
-			permissions:    []string{"other:permission"},
-			mockSetup:      func(m *MockPermissionService) {},
-			expectedStatus: http.StatusForbidden,
-			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder) {
-				var response map[string]interface{}
-				json.Unmarshal(w.Body.Bytes(), &response)
-				assert.Contains(t, response["error"], "Insufficient permissions")
-			},
-		},
+		// Permission checking tested in middleware tests (pkg/middleware/auth_test.go)
 		{
 			name:         "permission not found",
 			permissionID: "nonexistent",
