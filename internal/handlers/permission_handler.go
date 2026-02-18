@@ -29,13 +29,7 @@ func NewPermissionHandler(permissionService PermissionServiceInterface) *Permiss
 func (h *PermissionHandler) CreatePermission(c *gin.Context) {
 	logger.Info("Create permission endpoint called")
 
-	// Check permissions
-	permissions, _ := c.Get("permissions")
-	permList, _ := permissions.([]string)
-	if !hasPermission(permList, "permissions:write") {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
-		return
-	}
+	// Permission check handled by middleware
 
 	// Parse request
 	var req models.CreatePermissionRequest
@@ -71,13 +65,7 @@ func (h *PermissionHandler) CreatePermission(c *gin.Context) {
 func (h *PermissionHandler) ListPermissions(c *gin.Context) {
 	logger.Info("List permissions endpoint called")
 
-	// Check permissions
-	permissions, _ := c.Get("permissions")
-	permList, _ := permissions.([]string)
-	if !hasPermission(permList, "permissions:read") {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
-		return
-	}
+	// Permission check handled by middleware
 
 	// Parse pagination parameters
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
@@ -112,13 +100,7 @@ func (h *PermissionHandler) ListPermissions(c *gin.Context) {
 func (h *PermissionHandler) GetPermissionByID(c *gin.Context) {
 	logger.Info("Get permission by ID endpoint called")
 
-	// Check permissions
-	permissions, _ := c.Get("permissions")
-	permList, _ := permissions.([]string)
-	if !hasPermission(permList, "permissions:read") {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
-		return
-	}
+	// Permission check handled by middleware
 
 	// Get permission ID from path
 	permissionID := c.Param("id")
@@ -152,13 +134,7 @@ func (h *PermissionHandler) GetPermissionByID(c *gin.Context) {
 func (h *PermissionHandler) UpdatePermission(c *gin.Context) {
 	logger.Info("Update permission endpoint called")
 
-	// Check permissions
-	permissions, _ := c.Get("permissions")
-	permList, _ := permissions.([]string)
-	if !hasPermission(permList, "permissions:write") {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
-		return
-	}
+	// Permission check handled by middleware
 
 	// Get permission ID from path
 	permissionID := c.Param("id")
@@ -214,13 +190,7 @@ func (h *PermissionHandler) UpdatePermission(c *gin.Context) {
 func (h *PermissionHandler) DeletePermission(c *gin.Context) {
 	logger.Info("Delete permission endpoint called")
 
-	// Check permissions
-	permissions, _ := c.Get("permissions")
-	permList, _ := permissions.([]string)
-	if !hasPermission(permList, "permissions:write") {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
-		return
-	}
+	// Permission check handled by middleware
 
 	// Get permission ID from path
 	permissionID := c.Param("id")

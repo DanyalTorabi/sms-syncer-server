@@ -229,14 +229,6 @@ func (h *UserHandler) AdminResetPassword(c *gin.Context) {
 func (h *UserHandler) ListUsers(c *gin.Context) {
 	logger.Info("List users endpoint called")
 
-	// Check permissions
-	permissions, _ := c.Get("permissions")
-	permList, _ := permissions.([]string)
-	if !hasPermission(permList, "users:read") {
-		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to list users"})
-		return
-	}
-
 	// Parse pagination parameters
 	limit := 50 // Default limit
 	offset := 0 // Default offset
@@ -325,18 +317,10 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 		return
 	}
 
-	// Check if user is viewing themselves or has users:read permission
+	// Check if user is viewing themselves
 	isSelf := userID == authenticatedUserID.(string)
 
-	if !isSelf {
-		// Not viewing self - check users:read permission
-		permissions, _ := c.Get("permissions")
-		permList, _ := permissions.([]string)
-		if !hasPermission(permList, "users:read") {
-			c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to view other users"})
-			return
-		}
-	}
+	// Permission check is handled by middleware
 
 	// Get user with permissions
 	user, err := h.userService.GetUserWithPermissions(userID)
@@ -364,17 +348,9 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 }
 
 // validateUpdatePermissions checks if user has permission to update the target user
+// Permission check is now handled by middleware, this just validates the request
 func (h *UserHandler) validateUpdatePermissions(c *gin.Context, userID string, authenticatedUserID string, isSelf bool) bool {
-	if isSelf {
-		return true
-	}
-
-	permissions, _ := c.Get("permissions")
-	permList, _ := permissions.([]string)
-	if !hasPermission(permList, "users:write") {
-		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to update other users"})
-		return false
-	}
+	// Middleware already verified permission, just return true
 	return true
 }
 
@@ -511,13 +487,7 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 func (h *UserHandler) DeleteUserByID(c *gin.Context) {
 	logger.Info("Delete user endpoint called")
 
-	// Check permissions
-	permissions, _ := c.Get("permissions")
-	permList, _ := permissions.([]string)
-	if !hasPermission(permList, "users:write") {
-		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to delete users"})
-		return
-	}
+	// Permission check handled by middleware
 
 	// Extract user ID from route parameter
 	userID := c.Param("id")
@@ -577,13 +547,7 @@ func (h *UserHandler) DeleteUserByID(c *gin.Context) {
 func (h *UserHandler) AssignUserToGroup(c *gin.Context) {
 	logger.Info("Assign user to group endpoint called")
 
-	// Check permissions
-	permissions, _ := c.Get("permissions")
-	permList, _ := permissions.([]string)
-	if !hasPermission(permList, "users:write") {
-		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to assign users to groups"})
-		return
-	}
+	// Permission check handled by middleware
 
 	// Extract user ID from route parameter
 	userID := c.Param("id")
@@ -628,13 +592,7 @@ func (h *UserHandler) AssignUserToGroup(c *gin.Context) {
 func (h *UserHandler) RemoveUserFromGroup(c *gin.Context) {
 	logger.Info("Remove user from group endpoint called")
 
-	// Check permissions
-	permissions, _ := c.Get("permissions")
-	permList, _ := permissions.([]string)
-	if !hasPermission(permList, "users:write") {
-		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to remove users from groups"})
-		return
-	}
+	// Permission check handled by middleware
 
 	// Extract user ID and group ID from route parameters
 	userID := c.Param("id")
@@ -699,25 +657,14 @@ func (h *UserHandler) ListUserGroups(c *gin.Context) {
 	}
 
 	// Extract authenticated user ID from JWT context
-	authenticatedUserID, exists := c.Get("user_id")
+	_, exists := c.Get("user_id")
 	if !exists {
 		logger.Error("User ID not found in context")
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
 
-	// Check if user is viewing themselves or has users:read permission
-	isSelf := userID == authenticatedUserID.(string)
-
-	if !isSelf {
-		// Not viewing self - check users:read permission
-		permissions, _ := c.Get("permissions")
-		permList, _ := permissions.([]string)
-		if !hasPermission(permList, "users:read") {
-			c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to view other users' groups"})
-			return
-		}
-	}
+	// Permission check handled by middleware
 
 	// Get user with groups
 	user, err := h.userService.GetUserWithPermissions(userID)
@@ -742,14 +689,4 @@ func (h *UserHandler) ListUserGroups(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"groups": user.Groups,
 	})
-}
-
-// hasPermission checks if a given permission exists in the permissions list
-func hasPermission(permissions []string, permission string) bool {
-	for _, p := range permissions {
-		if p == permission {
-			return true
-		}
-	}
-	return false
 }

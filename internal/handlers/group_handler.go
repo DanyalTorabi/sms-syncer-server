@@ -29,13 +29,7 @@ func NewGroupHandler(groupService GroupServiceInterface) *GroupHandler {
 func (h *GroupHandler) CreateGroup(c *gin.Context) {
 	logger.Info("Create group endpoint called")
 
-	// Check permissions
-	permissions, _ := c.Get("permissions")
-	permList, _ := permissions.([]string)
-	if !hasPermission(permList, "groups:write") {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
-		return
-	}
+	// Permission check handled by middleware
 
 	// Parse request
 	var req models.CreateGroupRequest
@@ -69,13 +63,7 @@ func (h *GroupHandler) CreateGroup(c *gin.Context) {
 func (h *GroupHandler) ListGroups(c *gin.Context) {
 	logger.Info("List groups endpoint called")
 
-	// Check permissions
-	permissions, _ := c.Get("permissions")
-	permList, _ := permissions.([]string)
-	if !hasPermission(permList, "groups:read") {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
-		return
-	}
+	// Permission check handled by middleware
 
 	// Parse pagination parameters
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
@@ -110,13 +98,7 @@ func (h *GroupHandler) ListGroups(c *gin.Context) {
 func (h *GroupHandler) GetGroupByID(c *gin.Context) {
 	logger.Info("Get group by ID endpoint called")
 
-	// Check permissions
-	permissions, _ := c.Get("permissions")
-	permList, _ := permissions.([]string)
-	if !hasPermission(permList, "groups:read") {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
-		return
-	}
+	// Permission check handled by middleware
 
 	// Get group ID from path
 	groupID := c.Param("id")
@@ -149,13 +131,7 @@ func (h *GroupHandler) GetGroupByID(c *gin.Context) {
 func (h *GroupHandler) UpdateGroup(c *gin.Context) {
 	logger.Info("Update group endpoint called")
 
-	// Check permissions
-	permissions, _ := c.Get("permissions")
-	permList, _ := permissions.([]string)
-	if !hasPermission(permList, "groups:write") {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
-		return
-	}
+	// Permission check handled by middleware
 
 	// Get group ID from path
 	groupID := c.Param("id")
@@ -216,13 +192,7 @@ func (h *GroupHandler) UpdateGroup(c *gin.Context) {
 func (h *GroupHandler) DeleteGroup(c *gin.Context) {
 	logger.Info("Delete group endpoint called")
 
-	// Check permissions
-	permissions, _ := c.Get("permissions")
-	permList, _ := permissions.([]string)
-	if !hasPermission(permList, "groups:write") {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
-		return
-	}
+	// Permission check handled by middleware
 
 	// Get group ID from path
 	groupID := c.Param("id")
@@ -257,13 +227,7 @@ func (h *GroupHandler) DeleteGroup(c *gin.Context) {
 func (h *GroupHandler) AddPermissionToGroup(c *gin.Context) {
 	logger.Info("Add permission to group endpoint called")
 
-	// Check permissions
-	permissions, _ := c.Get("permissions")
-	permList, _ := permissions.([]string)
-	if !hasPermission(permList, "groups:write") {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
-		return
-	}
+	// Permission check handled by middleware
 
 	// Get group ID from path
 	groupID := c.Param("id")
@@ -321,13 +285,7 @@ func (h *GroupHandler) AddPermissionToGroup(c *gin.Context) {
 func (h *GroupHandler) RemovePermissionFromGroup(c *gin.Context) {
 	logger.Info("Remove permission from group endpoint called")
 
-	// Check permissions
-	permissions, _ := c.Get("permissions")
-	permList, _ := permissions.([]string)
-	if !hasPermission(permList, "groups:write") {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
-		return
-	}
+	// Permission check handled by middleware
 
 	// Get group ID and permission ID from path
 	groupID := c.Param("id")
