@@ -29,10 +29,26 @@ A robust, production-ready SMS synchronization server built with Go, featuring J
 
 ## Configuration
 
-The server can be configured using environment variables:
+The server can be configured using environment variables. Copy `.env.example` to `.env` and configure as needed:
 
-- `SERVER_PORT`: Port to listen on (default: 8080)
-- `LOG_LEVEL`: Logging level (default: info)
+```bash
+cp .env.example .env
+```
+
+**Required Environment Variables:**
+- `JWT_SECRET` - Secret key for JWT token generation (generate with: `openssl rand -base64 32`)
+- `TOTP_ENCRYPTION_KEY` - 32-byte hex key for TOTP encryption (generate with: `openssl rand -hex 32`)
+
+**Optional Environment Variables:**
+- `SERVER_PORT` - Port to listen on (default: 8080)
+- `SERVER_HOST` - Host to bind to (default: localhost)
+- `DATABASE_DSN` - Database connection string (default: file:sms.db?cache=shared&mode=rwc)
+- `LOG_LEVEL` - Logging level: debug, info, warn, error (default: info)
+- `JWT_TOKEN_EXPIRY` - JWT token expiry duration (default: 1h)
+- `ADMIN_USERNAME` - Default admin username (default: admin)
+- `ADMIN_PASSWORD` - Default admin password (default: admin123)
+
+See [`.env.example`](.env.example) for comprehensive configuration documentation.
 
 ## Running the Server
 
@@ -237,6 +253,7 @@ See [Security Documentation](docs/DEVELOPMENT.md#security) for details.
 - **[Contributing Guidelines](docs/CONTRIBUTING.md)** - How to contribute to this project
 - **[Development Setup](docs/DEVELOPMENT.md)** - Local development environment setup  
 - **[Deployment Guide](docs/DEPLOYMENT.md)** - Production deployment instructions
+- **[Database Schema](docs/DATABASE_SCHEMA.md)** - Complete database schema documentation with ER diagrams
 - **[Release Process](docs/RELEASE_PROCESS.md)** - How to create and manage releases
 - **[Branch Strategy](docs/BRANCH_STRATEGY.md)** - Git workflow and branch protection
 - **[API Documentation](API_DOCUMENTATION.md)** - Complete API reference
