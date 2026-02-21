@@ -29,62 +29,269 @@ This guide covers deployment strategies and configurations for the SMS Sync Serv
 
 ## Environment Configuration
 
-### Environment Variables
+### Required Environment Variables
 
-Create environment-specific configuration files:
+The following environment variables **MUST** be set before running the server in production:
 
-#### Production Environment
+#### `JWT_SECRET` (REQUIRED)
+- **Description**: Secret key used to sign and verify JWT tokens
+- **Format**: Base64-encoded string (minimum 32 characters recommended)
+- **Security**: Generate with a cryptographically secure random source
+- **Generation**: `openssl rand -base64 32`
+- **Example**: `abcdef123456ghijkl789opqrst=`
+- **Impact**: All user authentication depends on this value. Changing it invalidates all existing tokens.
+
+#### `TOTP_ENCRYPTION_KEY` (REQUIRED)
+- **Description**: 32-byte hex key for encrypting TOTP secrets (2FA)
+- **Format**: Exactly 64 hexadecimal characters (32 bytes)
+- **Security**: Generate with a cryptographically secure random source
+- **Generation**: `openssl rand -hex 32`
+- **Example**: `12345678901234567890123456789012abcdefabcdefabcdefabcdefabcdefab`
+- **Impact**: All 2FA secrets are encrypted with this key. Changing it makes existing 2FA secrets inaccessible.
+- **Note**: Keep this secret and never commit to version control
+
+### Optional Environment Variables
+
+#### `SERVER_PORT`
+- **Description**: Port the server listens on
+- **Type**: Integer (1-65535)
+- **Default**: `8080`
+- **Example**: `SERVER_PORT=3000`
+
+#### `SERVER_HOST`
+- **Description**: Host address the server binds to
+- **Type**: String (hostname or IP address)
+- **Default**: `localhost`
+- **Example**: `SERVER_HOST=0.0.0.0` (for Docker/production)
+
+#### `DATABASE_DSN`
+- **Description**: Database connection string
+- **Type**: String (DSN format)
+- **Default**: `file:sms.db?cache=shared&mode=rwc`
+- **SQLite Examples**:
+  - Development: `file:sms.db?cache=shared&mode=rwc`
+  - Production: `file:/data/sms.db?cache=shared&mode=rwc`
+  - With journal: `file:sms.db?cache=shared&mode=rwc&journal=wal`
+- **Note**: Ensure directory exists and is writable
+
+#### `JWT_TOKEN_EXPIRY`
+- **Description**: How long JWT tokens remain valid
+- **Type**: Duration string (Go format: 1h, 30m, 24h)
+- **Default**: `1h`
+- **Examples**: 
+  - `JWT_TOKEN_EXPIRY=1h` (1 hour)
+  - `JWT_TOKEN_EXPIRY=24h` (1 day)
+  - `JWT_TOKEN_EXPIRY=7d` (Not valid - use 168h instead)
+- **Recommended**: 24h for production
+
+#### `LOG_LEVEL`
+- **Description**: Minimum logging level
+- **Type**: String (case-insensitive)
+- **Default**: `info`
+- **Valid Values**: `debug`, `info`, `warn`, `error`
+- **Recommended Production**: `info` or `warn`
+
+#### `ADMIN_USERNAME`
+- **Description**: Default admin account username for database seeding
+- **Type**: String (3-50 characters)
+- **Default**: `admin`
+- **Example**: `ADMIN_USERNAME=sysadmin`
+- **Note**: Only used for initial setup on first run
+
+#### `ADMIN_PASSWORD`
+- **Description**: Default admin account password for database seeding
+- **Type**: String (minimum 8 characters)
+- **Default**: `admin123`
+- **Example**: `ADMIN_PASSWORD=SecurePassword123!`
+- **Security Warning**: 
+  - Change immediately after first login
+  - In production, generate strong temporary password
+  - Never use default password in production
+
+### Environment Variable Configuration Methods
+
+#### Method 1: `.env` File (Development)
 ```bash
-# Server Configuration
-SERVER_HOST=0.0.0.0
-SERVER_PORT=8080
-GO_ENV=production
+# Copy template
+cp .env.example .env
 
-# Database
-DATABASE_DSN=/data/sms.db
+# Edit .env with your values
+nano .env
 
-# JWT Configuration
-JWT_SECRET=${JWT_SECRET}  # From secure secret management
-JWT_TOKEN_EXPIRY=24h
+# Load environment variables
+export $(cat .env | xargs)
 
-# Logging
-LOG_LEVEL=info
-LOG_PATH=/var/log/sms-sync-server/server.log
-
-# Security
-CORS_ALLOWED_ORIGINS=https://your-domain.com
-RATE_LIMIT_REQUESTS=100
-RATE_LIMIT_WINDOW=60s
-
-# Health Check
-HEALTH_CHECK_ENDPOINT=/health
+# Run server (variables will be loaded from environment)
+go run cmd/server/main.go
 ```
 
-#### Staging Environment
-```bash
-# Server Configuration
-SERVER_HOST=0.0.0.0
-SERVER_PORT=8080
-GO_ENV=staging
+#### Method 2: Docker (.env file in docker-compose)
+```yaml
+version: '3.8'
 
-# Database
-DATABASE_DSN=/data/staging-sms.db
-
-# JWT Configuration
-JWT_SECRET=${STAGING_JWT_SECRET}
-JWT_TOKEN_EXPIRY=2h
-
-# Logging
-LOG_LEVEL=debug
-LOG_PATH=/var/log/sms-sync-server/staging.log
-
-# Security
-CORS_ALLOWED_ORIGINS=https://staging.your-domain.com
-RATE_LIMIT_REQUESTS=1000
-RATE_LIMIT_WINDOW=60s
+services:
+  sms-server:
+    image: ghcr.io/danyaltorabi/sms-syncer-server:latest
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/data
 ```
 
-## Docker Deployment
+#### Method 3: Environment Variables (Production)
+```bash
+# Linux/macOS
+export JWT_SECRET="your-secret-key"
+export TOTP_ENCRYPTION_KEY="your-totp-key-64-hex-chars"
+export SERVER_PORT="8080"
+export DATABASE_DSN="file:/data/sms.db"
+export LOG_LEVEL="info"
+
+# Run server
+./sms-sync-server
+```
+
+#### Method 4: Docker Compose Environment
+```yaml
+services:
+  sms-server:
+    image: ghcr.io/danyaltorabi/sms-syncer-server:latest
+    environment:
+      JWT_SECRET: "${JWT_SECRET}"
+      TOTP_ENCRYPTION_KEY: "${TOTP_ENCRYPTION_KEY}"
+      SERVER_PORT: "8080"
+      DATABASE_DSN: "file:/data/sms.db"
+      LOG_LEVEL: "info"
+      ADMIN_USERNAME: "admin"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD}"
+    volumes:
+      - sms_data:/data
+```
+
+#### Method 5: Kubernetes Secrets
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sms-server-secrets
+type: Opaque
+data:
+  jwt-secret: YWJjZGVmMTIzNDU2Z2hpamtsPzc4OW9wcXJzdA==  # base64 encoded
+  totp-encryption-key: MTIzNDU2Nzg5MDEyMzQ1Njc4OTBhYmNkZWY=  # base64 encoded
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sms-server-config
+data:
+  SERVER_PORT: "8080"
+  LOG_LEVEL: "info"
+  DATABASE_DSN: "file:/data/sms.db"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sms-server
+spec:
+  template:
+    spec:
+      containers:
+      - name: sms-server
+        env:
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: sms-server-secrets
+              key: jwt-secret
+        - name: TOTP_ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: sms-server-secrets
+              key: totp-encryption-key
+        - name: SERVER_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: sms-server-config
+              key: SERVER_PORT
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: sms-server-config
+              key: LOG_LEVEL
+        - name: DATABASE_DSN
+          valueFrom:
+            configMapKeyRef:
+              name: sms-server-config
+              key: DATABASE_DSN
+```
+
+#### Method 6: AWS Systems Manager Parameter Store
+```bash
+# Store secrets
+aws ssm put-parameter \
+  --name /sms-server/jwt-secret \
+  --value "your-secret-key" \
+  --type SecureString
+
+aws ssm put-parameter \
+  --name /sms-server/totp-encryption-key \
+  --value "your-totp-key-64-hex-chars" \
+  --type SecureString
+
+# Retrieve and set in shell
+export JWT_SECRET=$(aws ssm get-parameter --name /sms-server/jwt-secret --with-decryption --query 'Parameter.Value' --output text)
+export TOTP_ENCRYPTION_KEY=$(aws ssm get-parameter --name /sms-server/totp-encryption-key --with-decryption --query 'Parameter.Value' --output text)
+
+# Run server
+./sms-sync-server
+```
+
+### Configuration Validation
+
+The server validates all required environment variables on startup. If validation fails, the server will exit with an error message:
+
+```
+Error: JWT_SECRET environment variable is required
+```
+
+**To verify configuration before starting:**
+```bash
+# The server will validate all variables during initialization
+# Check logs for validation errors
+go run cmd/server/main.go 2>&1 | grep -i "error\|required"
+```
+
+### Configuration Examples
+
+#### Minimal Development Setup
+```bash
+JWT_SECRET="dev-secret-key-change-in-production"
+TOTP_ENCRYPTION_KEY="12345678901234567890123456789012abcdefabcdefabcdefabcdefabcdefab"
+```
+
+#### Production Setup
+```bash
+# Secrets (from secure store)
+JWT_SECRET="$(aws ssm get-parameter --name /prod/jwt-secret --with-decryption --query Parameter.Value --output text)"
+TOTP_ENCRYPTION_KEY="$(aws ssm get-parameter --name /prod/totp-encryption-key --with-decryption --query Parameter.Value --output text)"
+
+# Configuration
+SERVER_PORT="8080"
+SERVER_HOST="0.0.0.0"
+DATABASE_DSN="file:/data/prod-sms.db?journal=wal"
+LOG_LEVEL="info"
+JWT_TOKEN_EXPIRY="24h"
+ADMIN_USERNAME="admin"
+ADMIN_PASSWORD="$(aws ssm get-parameter --name /prod/admin-password --with-decryption --query Parameter.Value --output text)"
+```
+
+---
+
+## Environment Configuration
 
 ### Dockerfile
 
