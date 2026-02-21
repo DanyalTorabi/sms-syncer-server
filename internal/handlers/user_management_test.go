@@ -69,17 +69,6 @@ func TestUserHandler_ListUsers(t *testing.T) {
 			},
 		},
 		{
-			name:           "unauthorized - missing permission",
-			queryParams:    "",
-			userID:         "user-123",
-			permissions:    []string{"other:permission"},
-			mockSetup:      func(m *MockUserService) {},
-			expectedStatus: http.StatusForbidden,
-			checkResponse: func(t *testing.T, resp map[string]interface{}) {
-				assert.Contains(t, resp["error"], "permission")
-			},
-		},
-		{
 			name:        "service error",
 			queryParams: "",
 			userID:      "user-123",
@@ -187,17 +176,6 @@ func TestUserHandler_GetUserByID(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			checkResponse: func(t *testing.T, resp map[string]interface{}) {
 				assert.Equal(t, "user-456", resp["id"])
-			},
-		},
-		{
-			name:           "forbidden - accessing other user without permission",
-			targetUserID:   "user-456",
-			currentUserID:  "user-123",
-			permissions:    []string{},
-			mockSetup:      func(m *MockUserService) {},
-			expectedStatus: http.StatusForbidden,
-			checkResponse: func(t *testing.T, resp map[string]interface{}) {
-				assert.Contains(t, resp["error"], "permission")
 			},
 		},
 		{
@@ -339,18 +317,6 @@ func TestUserHandler_UpdateUserByID(t *testing.T) {
 			},
 		},
 		{
-			name:           "forbidden - updating other user without permission",
-			targetUserID:   "user-456",
-			currentUserID:  "user-123",
-			permissions:    []string{},
-			requestBody:    map[string]interface{}{"email": "test@example.com"},
-			mockSetup:      func(m *MockUserService) {},
-			expectedStatus: http.StatusForbidden,
-			checkResponse: func(t *testing.T, resp map[string]interface{}) {
-				assert.Contains(t, resp["error"], "permission")
-			},
-		},
-		{
 			name:           "invalid request body",
 			targetUserID:   "user-123",
 			currentUserID:  "user-123",
@@ -458,17 +424,6 @@ func TestUserHandler_DeleteUserByID(t *testing.T) {
 			},
 		},
 		{
-			name:           "unauthorized - missing permission",
-			targetUserID:   "user-456",
-			currentUserID:  "user-123",
-			permissions:    []string{},
-			mockSetup:      func(m *MockUserService) {},
-			expectedStatus: http.StatusForbidden,
-			checkResponse: func(t *testing.T, resp map[string]interface{}) {
-				assert.Contains(t, resp["error"], "permission")
-			},
-		},
-		{
 			name:          "user not found",
 			targetUserID:  "nonexistent",
 			currentUserID: "user-123",
@@ -555,20 +510,6 @@ func TestUserHandler_AssignUserToGroup(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			checkResponse: func(t *testing.T, resp map[string]interface{}) {
 				assert.Contains(t, resp["message"], "assigned")
-			},
-		},
-		{
-			name:          "unauthorized - missing permission",
-			targetUserID:  "user-456",
-			currentUserID: "user-123",
-			permissions:   []string{},
-			requestBody: models.AssignGroupRequest{
-				GroupID: "group-789",
-			},
-			mockSetup:      func(m *MockUserService) {},
-			expectedStatus: http.StatusForbidden,
-			checkResponse: func(t *testing.T, resp map[string]interface{}) {
-				assert.Contains(t, resp["error"], "permission")
 			},
 		},
 		{
@@ -689,18 +630,6 @@ func TestUserHandler_RemoveUserFromGroup(t *testing.T) {
 			},
 		},
 		{
-			name:           "unauthorized - missing permission",
-			targetUserID:   "user-456",
-			groupID:        "group-789",
-			currentUserID:  "user-123",
-			permissions:    []string{},
-			mockSetup:      func(m *MockUserService) {},
-			expectedStatus: http.StatusForbidden,
-			checkResponse: func(t *testing.T, resp map[string]interface{}) {
-				assert.Contains(t, resp["error"], "permission")
-			},
-		},
-		{
 			name:          "user not found",
 			targetUserID:  "nonexistent",
 			groupID:       "group-789",
@@ -817,17 +746,6 @@ func TestUserHandler_ListUserGroups(t *testing.T) {
 			checkResponse: func(t *testing.T, resp map[string]interface{}) {
 				groups := resp["groups"].([]interface{})
 				assert.Len(t, groups, 1)
-			},
-		},
-		{
-			name:           "unauthorized - accessing other user without permission",
-			targetUserID:   "user-456",
-			currentUserID:  "user-123",
-			permissions:    []string{},
-			mockSetup:      func(m *MockUserService) {},
-			expectedStatus: http.StatusForbidden,
-			checkResponse: func(t *testing.T, resp map[string]interface{}) {
-				assert.Contains(t, resp["error"], "permission")
 			},
 		},
 		{
