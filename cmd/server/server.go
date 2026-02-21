@@ -120,36 +120,39 @@ func setupRoutes(
 	// User management endpoints (protected)
 	protectedUsers := protected.Group("/users")
 	{
-		// List users (GET /api/users)
-		protectedUsers.GET("", userHandler.ListUsers)
+		// List users (GET /api/users) - requires users:read permission
+		protectedUsers.GET("", middleware.RequirePermission("users:read"), userHandler.ListUsers)
 
-		// Get user by ID (GET /api/users/:id)
-		protectedUsers.GET("/:id", userHandler.GetUserByID)
+		// Get user by ID (GET /api/users/:id) - self-access or users:read permission
+		protectedUsers.GET("/:id", middleware.IsSelfOrHasPermission("users:read"), userHandler.GetUserByID)
 
-		// Update user (PUT /api/users/:id)
-		protectedUsers.PUT("/:id", userHandler.UpdateUserByID)
+		// Update user (PUT /api/users/:id) - self-access or users:write permission
+		protectedUsers.PUT("/:id", middleware.IsSelfOrHasPermission("users:write"), userHandler.UpdateUserByID)
 
-		// Delete user - soft delete (DELETE /api/users/:id)
-		protectedUsers.DELETE("/:id", userHandler.DeleteUserByID)
+		// Delete user - soft delete (DELETE /api/users/:id) - self-access or users:delete permission
+		protectedUsers.DELETE("/:id", middleware.IsSelfOrHasPermission("users:delete"), userHandler.DeleteUserByID)
 
-		// Self-service password change
+		// Self-service password change - authenticated users can change their own password
 		protectedUsers.POST("/:id/password", userHandler.ChangePassword)
 
-		// User-group assignment
-		protectedUsers.POST("/:id/groups", userHandler.AssignUserToGroup)
-		protectedUsers.DELETE("/:id/groups/:groupId", userHandler.RemoveUserFromGroup)
-		protectedUsers.GET("/:id/groups", userHandler.ListUserGroups)
+		// User-group assignment - requires both users:write and groups:manage permissions
+		protectedUsers.POST("/:id/groups", middleware.RequireAllPermissions("users:write", "groups:manage"), userHandler.AssignUserToGroup)
+		protectedUsers.DELETE("/:id/groups/:groupId", middleware.RequireAllPermissions("users:write", "groups:manage"), userHandler.RemoveUserFromGroup)
+
+		// Get user's groups - self-access or users:read permission
+		protectedUsers.GET("/:id/groups", middleware.IsSelfOrHasPermission("users:read"), userHandler.ListUserGroups)
 	}
 
-	// Admin routes (protected, TODO: add admin permission middleware in #80)
+	// Admin routes (protected)
 	adminGroup := protected.Group("/admin")
 	{
-		// Admin password reset
-		adminGroup.POST("/users/:id/password/reset", userHandler.AdminResetPassword)
+		// Admin password reset - requires users:write permission
+		adminGroup.POST("/users/:id/password/reset", middleware.RequirePermission("users:write"), userHandler.AdminResetPassword)
 	}
 
-	// Group management endpoints (protected)
+	// Group management endpoints (protected) - all require groups:manage permission
 	protectedGroups := protected.Group("/groups")
+	protectedGroups.Use(middleware.RequirePermission("groups:manage"))
 	{
 		// Create group (POST /api/groups)
 		protectedGroups.POST("", groupHandler.CreateGroup)
@@ -173,8 +176,9 @@ func setupRoutes(
 		protectedGroups.DELETE("/:id/permissions/:permissionId", groupHandler.RemovePermissionFromGroup)
 	}
 
-	// Permission management endpoints (protected)
+	// Permission management endpoints (protected) - all require permissions:manage permission
 	protectedPerms := protected.Group("/permissions")
+	protectedPerms.Use(middleware.RequirePermission("permissions:manage"))
 	{
 		// Create permission (POST /api/permissions)
 		protectedPerms.POST("", permissionHandler.CreatePermission)
@@ -192,8 +196,8 @@ func setupRoutes(
 		protectedPerms.DELETE("/:id", permissionHandler.DeletePermission)
 	}
 
-	// SMS endpoint (protected)
-	protected.POST("/sms/add", func(c *gin.Context) {
+	// SMS endpoint (protected) - requires sms:write permission
+	protected.POST("/sms/add", middleware.RequirePermission("sms:write"), func(c *gin.Context) {
 		handleAddSMS(c, smsService)
 	})
 }

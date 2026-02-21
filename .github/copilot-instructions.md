@@ -77,6 +77,53 @@ sms-syncer-server/
 - Group related functions together
 - Place tests in `*_test.go` files alongside source
 
+### Workflow Guidelines
+
+#### Pull Request Creation for Tickets
+
+**CRITICAL: Always create a feature branch and PR when planning or implementing tickets**
+
+When a user asks to plan or implement a ticket:
+
+1. **Create a feature branch from latest main**:
+   ```bash
+   git checkout main
+   git pull origin main
+   git checkout -b <ticket-number>-<brief-description>
+   ```
+
+2. **Make your changes** following the coding standards
+
+3. **Create a PR** using `gh pr create`:
+   ```bash
+   gh pr create \
+     --title "<type>: <description>" \
+     --body "Implements #<ticket-number>\n\n## Changes\n- ..."
+   ```
+
+**Example workflow:**
+```bash
+# User: "implement ticket #85"
+
+# 1. Create branch from latest main
+git checkout main
+git pull origin main
+git checkout -b 85-add-sms-filtering
+
+# 2. Implement changes
+# ... make code changes ...
+
+# 3. Commit and push
+git add .
+git commit -m "feat: add SMS filtering by date range"
+git push origin 85-add-sms-filtering
+
+# 4. Create PR
+gh pr create \
+  --title "feat: add SMS filtering by date range" \
+  --body "Implements #85\n\n## Changes\n- Added date range query parameters\n- Updated handler and service layer\n- Added unit tests\n\nCloses #85"
+```
+
 ### Best Practices
 
 #### 1. Functions and Methods
@@ -176,7 +223,81 @@ hashedPhone := hashPhone(sms.PhoneNumber)
 sms.UserID = userID
 ```
 
-#### 5. Interfaces and Abstraction
+#### 5. TODO Comments and Follow-up Tasks
+
+**CRITICAL: Always create GitHub issues for deferred work and reference them in code**
+
+When you identify follow-up work, refactoring needs, or technical debt during development:
+
+1. **Check for existing related issues first** using `gh issue list`
+   - If a related open issue exists, update it with the new task instead of creating a duplicate
+   - Only create a new issue if no related issue exists
+2. **Add a TODO comment in the code** with the issue number
+3. **Never leave untracked TODOs** - every TODO must have a corresponding issue
+
+```go
+// GOOD: TODO with issue reference
+// TODO(#123): Refactor this to use connection pooling for better performance
+func ProcessBatch(items []Item) error {
+    // current implementation
+}
+
+// GOOD: TODO with issue reference and context
+// TODO(#456): Move permission validation to middleware layer
+// Currently validating here for backward compatibility, but this should
+// be handled by RequirePermission middleware after ticket #81 is complete
+if !hasPermission(user, "resource:write") {
+    return ErrForbidden
+}
+
+// BAD: TODO without issue tracking
+// TODO: This needs optimization
+func SlowFunction() {
+    // ...
+}
+
+// BAD: Vague TODO without context
+// TODO: Fix this later
+func BrokenFunction() {
+    // ...
+}
+```
+
+**Workflow for creating tracked TODOs:**
+
+```bash
+# 1. Check for existing related issues first
+gh issue list --search "batch processing" --state open
+
+# If related issue exists, update it:
+gh issue comment 123 --body "Additional task: Refactor SMS batch processing to use connection pooling"
+
+# If no related issue exists, create a new one:
+gh issue create \
+  --title "Refactor SMS batch processing for connection pooling" \
+  --body "Current implementation opens new connection for each item.
+Should use connection pool for better performance and resource usage." \
+  --label "enhancement,tech-debt"
+
+# Output: Created issue #123
+
+# 2. Add TODO comment in code with issue number
+# TODO(#123): Refactor this to use connection pooling for better performance
+
+# 3. Commit with reference
+git commit -m "feat: add batch SMS processing
+
+Note: Current implementation could be optimized (see #123)"
+```
+
+**Benefits of tracked TODOs:**
+- ✅ Technical debt is visible and tracked
+- ✅ Follow-up work doesn't get forgotten
+- ✅ Easy to find all TODOs: `grep -r "TODO(#" .`
+- ✅ Issues can be prioritized and scheduled
+- ✅ Context preserved for future developers
+
+#### 6. Interfaces and Abstraction
 
 ```go
 // GOOD: Small, focused interfaces

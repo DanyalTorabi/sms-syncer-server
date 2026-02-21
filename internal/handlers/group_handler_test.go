@@ -100,18 +100,8 @@ func TestGroupHandler_CreateGroup(t *testing.T) {
 				assert.Equal(t, "Developers", resp["name"])
 			},
 		},
-		{
-			name: "missing permission",
-			requestBody: map[string]interface{}{
-				"name": "Developers",
-			},
-			permissions:    []string{"other:permission"},
-			mockSetup:      func(m *MockGroupService) {},
-			expectedStatus: http.StatusForbidden,
-			checkResponse: func(t *testing.T, resp map[string]interface{}) {
-				assert.Contains(t, resp["error"], "Insufficient permissions")
-			},
-		},
+		// Note: Permission checking is now tested in middleware tests (pkg/middleware/auth_test.go)
+		// Handler tests focus on business logic only
 		{
 			name: "invalid request format",
 			requestBody: map[string]interface{}{
@@ -232,16 +222,7 @@ func TestGroupHandler_ListGroups(t *testing.T) {
 				assert.Len(t, groups, 1)
 			},
 		},
-		{
-			name:           "missing permission",
-			queryParams:    "",
-			permissions:    []string{"other:permission"},
-			mockSetup:      func(m *MockGroupService) {},
-			expectedStatus: http.StatusForbidden,
-			checkResponse: func(t *testing.T, resp map[string]interface{}) {
-				assert.Contains(t, resp["error"], "Insufficient permissions")
-			},
-		},
+		// Permission checking tested in middleware tests
 		{
 			name:        "service error",
 			queryParams: "",
@@ -330,16 +311,7 @@ func TestGroupHandler_GetGroupByID(t *testing.T) {
 				assert.Equal(t, "Developers", resp["name"])
 			},
 		},
-		{
-			name:           "missing permission",
-			groupID:        "group-1",
-			permissions:    []string{"other:permission"},
-			mockSetup:      func(m *MockGroupService) {},
-			expectedStatus: http.StatusForbidden,
-			checkResponse: func(t *testing.T, resp map[string]interface{}) {
-				assert.Contains(t, resp["error"], "Insufficient permissions")
-			},
-		},
+		// Permission checking tested in middleware tests
 		{
 			name:        "group not found",
 			groupID:     "nonexistent",
@@ -425,19 +397,7 @@ func TestGroupHandler_UpdateGroup(t *testing.T) {
 				assert.Contains(t, resp["message"], "updated successfully")
 			},
 		},
-		{
-			name:    "missing permission",
-			groupID: "group-1",
-			requestBody: map[string]interface{}{
-				"name": "Updated Developers",
-			},
-			permissions:    []string{"other:permission"},
-			mockSetup:      func(m *MockGroupService) {},
-			expectedStatus: http.StatusForbidden,
-			checkResponse: func(t *testing.T, resp map[string]interface{}) {
-				assert.Contains(t, resp["error"], "Insufficient permissions")
-			},
-		},
+		// Permission checking tested in middleware tests
 		{
 			name:           "no fields to update",
 			groupID:        "group-1",
@@ -536,18 +496,7 @@ func TestGroupHandler_DeleteGroup(t *testing.T) {
 				assert.Empty(t, w.Body.String())
 			},
 		},
-		{
-			name:           "missing permission",
-			groupID:        "group-1",
-			permissions:    []string{"other:permission"},
-			mockSetup:      func(m *MockGroupService) {},
-			expectedStatus: http.StatusForbidden,
-			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder) {
-				var response map[string]interface{}
-				json.Unmarshal(w.Body.Bytes(), &response)
-				assert.Contains(t, response["error"], "Insufficient permissions")
-			},
-		},
+		// Permission checking tested in middleware tests
 		{
 			name:        "group not found",
 			groupID:     "nonexistent",
@@ -689,19 +638,7 @@ func TestGroupHandler_AddPermissionToGroup(t *testing.T) {
 				assert.Equal(t, "Permission already assigned to group", response["error"])
 			},
 		},
-		{
-			name:    "insufficient permissions",
-			groupID: "group-123",
-			requestBody: map[string]interface{}{
-				"permission_id": "perm-456",
-			},
-			permissions:    []string{"groups:read"},
-			mockSetup:      func(m *MockGroupService) {},
-			expectedStatus: http.StatusForbidden,
-			checkResponse: func(t *testing.T, response map[string]interface{}) {
-				assert.Equal(t, "Insufficient permissions", response["error"])
-			},
-		},
+		// Permission checking tested in middleware tests
 		{
 			name:    "service error",
 			groupID: "group-123",
@@ -822,19 +759,7 @@ func TestGroupHandler_RemovePermissionFromGroup(t *testing.T) {
 				assert.Equal(t, "Permission not assigned to group", response["error"])
 			},
 		},
-		{
-			name:           "insufficient permissions",
-			groupID:        "group-123",
-			permissionID:   "perm-456",
-			permissions:    []string{"groups:read"},
-			mockSetup:      func(m *MockGroupService) {},
-			expectedStatus: http.StatusForbidden,
-			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder) {
-				var response map[string]interface{}
-				json.Unmarshal(w.Body.Bytes(), &response)
-				assert.Equal(t, "Insufficient permissions", response["error"])
-			},
-		},
+		// Permission checking tested in middleware tests
 		{
 			name:         "service error",
 			groupID:      "group-123",
