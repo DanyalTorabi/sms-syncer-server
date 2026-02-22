@@ -527,6 +527,9 @@ func TestUserManagementIndexes(t *testing.T) {
 		{"idx_user_groups_group_id exists", "idx_user_groups_group_id"},
 		{"idx_group_permissions_group_id exists", "idx_group_permissions_group_id"},
 		{"idx_group_permissions_permission_id exists", "idx_group_permissions_permission_id"},
+		{"idx_messages_user_id exists", "idx_messages_user_id"},
+		{"idx_messages_sms_timestamp exists", "idx_messages_sms_timestamp"},
+		{"idx_messages_user_timestamp exists", "idx_messages_user_timestamp"},
 	}
 
 	db, err := NewDatabase(":memory:")

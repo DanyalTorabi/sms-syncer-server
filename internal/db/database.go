@@ -228,6 +228,9 @@ func createIndexes(db *sql.DB) error {
 		{"idx_user_groups_group_id", "CREATE INDEX IF NOT EXISTS idx_user_groups_group_id ON user_groups(group_id)"},
 		{"idx_group_permissions_group_id", "CREATE INDEX IF NOT EXISTS idx_group_permissions_group_id ON group_permissions(group_id)"},
 		{"idx_group_permissions_permission_id", "CREATE INDEX IF NOT EXISTS idx_group_permissions_permission_id ON group_permissions(permission_id)"},
+		{"idx_messages_user_id", "CREATE INDEX IF NOT EXISTS idx_messages_user_id ON messages(user_id)"},
+		{"idx_messages_sms_timestamp", "CREATE INDEX IF NOT EXISTS idx_messages_sms_timestamp ON messages(smsTimestamp)"},
+		{"idx_messages_user_timestamp", "CREATE INDEX IF NOT EXISTS idx_messages_user_timestamp ON messages(user_id, smsTimestamp)"},
 	}
 
 	for _, idx := range indexes {
