@@ -60,7 +60,7 @@ This guide provides detailed information for developers working on the SMS Sync 
 https://golang.org/dl/
 
 # Install pinned development tools
-go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.61.0
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
 go install golang.org/x/tools/cmd/goimports@v0.30.0
 go install github.com/go-delve/delve/cmd/dlv@v1.24.0
 
@@ -74,7 +74,7 @@ brew install sqlite3          # macOS
 Use the same versions locally and in CI to avoid false-positive failures:
 
 - Go: `1.24.0`
-- golangci-lint: `v1.61.0`
+- golangci-lint: `v1.64.8`
 
 You can verify local versions with:
 
