@@ -264,8 +264,8 @@ func TestLoginJWTClaims(t *testing.T) {
 	assert.Equal(t, "user-123", claims.UserID)
 	assert.Equal(t, "testuser", claims.Username)
 	assert.Len(t, claims.Permissions, 2)
-	assert.Contains(t, claims.Permissions, "perm-1")
-	assert.Contains(t, claims.Permissions, "perm-2")
+	assert.Contains(t, claims.Permissions, "sms:read")
+	assert.Contains(t, claims.Permissions, "sms:write")
 
 	// Verify token expiry is approximately 1 hour from now
 	expectedExpiry := time.Now().Add(1 * time.Hour)
