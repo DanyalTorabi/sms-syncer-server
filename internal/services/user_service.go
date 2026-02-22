@@ -12,9 +12,11 @@ import (
 	"sms-sync-server/internal/config"
 	"sms-sync-server/internal/db"
 	"sms-sync-server/internal/models"
+	"sms-sync-server/pkg/logger"
 	"sms-sync-server/pkg/utils"
 
 	"github.com/pquerna/otp/totp"
+	"go.uber.org/zap"
 )
 
 const (
@@ -150,50 +152,102 @@ func (s *UserService) Authenticate(username, password, totpCode string) (*models
 	// Get user by username
 	user, err := s.repo.GetByUsername(username)
 	if err != nil {
+		logger.Error("Database error during authentication",
+			zap.String("username", username),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
 	if user == nil {
+		logger.Warn("Authentication failed - user not found",
+			zap.String("username", username),
+			zap.String("event_type", "invalid_credentials"),
+		)
 		return nil, ErrInvalidCredentials
 	}
 
 	// Check and handle account lock
+	originalUser := user
 	user, err = s.checkAccountLock(user)
 	if err != nil {
+		logger.Warn("Authentication failed - account locked",
+			zap.String("user_id", originalUser.ID),
+			zap.String("username", originalUser.Username),
+			zap.String("event_type", "account_locked"),
+		)
 		return nil, err
 	}
 
 	// Check if user is active
 	if !user.Active {
+		logger.Warn("Authentication failed - account inactive",
+			zap.String("user_id", user.ID),
+			zap.String("username", user.Username),
+			zap.String("event_type", "inactive_account"),
+		)
 		return nil, errors.New("user account is inactive")
 	}
 
 	// Verify password
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
 		if incrementErr := s.IncrementFailedLogin(user.ID); incrementErr != nil {
+			logger.Error("Failed to increment failed login counter",
+				zap.String("user_id", user.ID),
+				zap.Error(incrementErr),
+			)
 			return nil, fmt.Errorf("authentication failed and failed to increment counter: %w", incrementErr)
 		}
+		logger.Warn("Authentication failed - invalid password",
+			zap.String("user_id", user.ID),
+			zap.String("username", user.Username),
+			zap.String("event_type", "failed_login"),
+		)
 		return nil, ErrInvalidCredentials
 	}
 
 	// Verify TOTP if enabled
 	if err := s.verifyTOTP(user, totpCode); err != nil {
+		logger.Warn("Authentication failed - TOTP validation failed",
+			zap.String("user_id", user.ID),
+			zap.String("username", user.Username),
+			zap.String("event_type", "failed_totp_validation"),
+			zap.Error(err),
+		)
 		return nil, err
 	}
 
 	// Authentication successful - reset failed attempts and update last login
 	if err := s.ResetFailedLogin(user.ID); err != nil {
+		logger.Error("Failed to reset failed login counter after successful auth",
+			zap.String("user_id", user.ID),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("failed to reset failed login: %w", err)
 	}
 
 	if err := s.UpdateLastLogin(user.ID); err != nil {
+		logger.Error("Failed to update last login timestamp",
+			zap.String("user_id", user.ID),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("failed to update last login: %w", err)
 	}
 
 	// Reload user to get updated fields
 	user, err = s.repo.GetByID(user.ID)
 	if err != nil {
+		logger.Error("Failed to reload user after successful authentication",
+			zap.String("user_id", user.ID),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("failed to reload user: %w", err)
 	}
+
+	logger.Info("User authenticated successfully",
+		zap.String("user_id", user.ID),
+		zap.String("username", user.Username),
+		zap.String("event_type", "successful_login"),
+	)
 
 	return user, nil
 }
@@ -381,12 +435,38 @@ func (s *UserService) DeleteUser(id string) error {
 		return errors.New("user ID cannot be empty")
 	}
 
+	// Get user details before deletion for logging
+	user, err := s.repo.GetByID(id)
+	if err != nil {
+		logger.Error("Failed to retrieve user for deletion",
+			zap.String("user_id", id),
+			zap.Error(err),
+		)
+		return fmt.Errorf("failed to get user: %w", err)
+	}
+
 	if err := s.repo.Delete(id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
+			logger.Warn("Delete user failed - user not found",
+				zap.String("user_id", id),
+				zap.String("event_type", "user_not_found"),
+			)
 			return ErrUserNotFound
 		}
+		logger.Error("Failed to delete user from database",
+			zap.String("user_id", id),
+			zap.String("username", user.Username),
+			zap.String("event_type", "user_deletion_failed"),
+			zap.Error(err),
+		)
 		return fmt.Errorf("failed to delete user: %w", err)
 	}
+
+	logger.Info("User deleted successfully",
+		zap.String("user_id", id),
+		zap.String("username", user.Username),
+		zap.String("event_type", "user_deletion"),
+	)
 
 	return nil
 }
@@ -416,34 +496,66 @@ func (s *UserService) ChangePassword(id, oldPassword, newPassword string) error 
 
 	// Validate new password
 	if err := validatePassword(newPassword); err != nil {
+		logger.Warn("Password change failed - invalid password format",
+			zap.String("user_id", id),
+			zap.String("event_type", "weak_password"),
+			zap.Error(err),
+		)
 		return err
 	}
 
 	// Get user
 	user, err := s.repo.GetByID(id)
 	if err != nil {
+		logger.Error("Failed to retrieve user for password change",
+			zap.String("user_id", id),
+			zap.Error(err),
+		)
 		return fmt.Errorf("failed to get user: %w", err)
 	}
 	if user == nil {
+		logger.Warn("Password change failed - user not found",
+			zap.String("user_id", id),
+			zap.String("event_type", "user_not_found"),
+		)
 		return ErrUserNotFound
 	}
 
 	// Verify old password
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(oldPassword)); err != nil {
+		logger.Warn("Password change failed - incorrect old password",
+			zap.String("user_id", id),
+			zap.String("username", user.Username),
+			zap.String("event_type", "password_verification_failed"),
+		)
 		return ErrIncorrectOldPassword
 	}
 
 	// Hash new password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), BcryptCost)
 	if err != nil {
+		logger.Error("Failed to hash new password",
+			zap.String("user_id", id),
+			zap.Error(err),
+		)
 		return fmt.Errorf("failed to hash password: %w", err)
 	}
 
 	// Update password
 	user.PasswordHash = string(hashedPassword)
 	if err := s.repo.Update(user); err != nil {
+		logger.Error("Failed to update password in database",
+			zap.String("user_id", id),
+			zap.Error(err),
+		)
 		return fmt.Errorf("failed to update password: %w", err)
 	}
+
+	logger.Info("Password changed successfully",
+		zap.String("user_id", id),
+		zap.String("username", user.Username),
+		zap.String("event_type", "password_change"),
+	)
 
 	return nil
 }
@@ -494,8 +606,20 @@ func (s *UserService) AssignToGroup(userID, groupID string) error {
 	}
 
 	if err := s.repo.AddToGroup(userID, groupID); err != nil {
+		logger.Error("Failed to assign user to group",
+			zap.String("user_id", userID),
+			zap.String("group_id", groupID),
+			zap.String("event_type", "group_assignment_failed"),
+			zap.Error(err),
+		)
 		return fmt.Errorf("failed to assign user to group: %w", err)
 	}
+
+	logger.Info("User assigned to group",
+		zap.String("user_id", userID),
+		zap.String("group_id", groupID),
+		zap.String("event_type", "group_assignment"),
+	)
 
 	return nil
 }
@@ -510,8 +634,20 @@ func (s *UserService) RemoveFromGroup(userID, groupID string) error {
 	}
 
 	if err := s.repo.RemoveFromGroup(userID, groupID); err != nil {
+		logger.Error("Failed to remove user from group",
+			zap.String("user_id", userID),
+			zap.String("group_id", groupID),
+			zap.String("event_type", "group_removal_failed"),
+			zap.Error(err),
+		)
 		return fmt.Errorf("failed to remove user from group: %w", err)
 	}
+
+	logger.Info("User removed from group",
+		zap.String("user_id", userID),
+		zap.String("group_id", groupID),
+		zap.String("event_type", "group_removal"),
+	)
 
 	return nil
 }
@@ -524,6 +660,10 @@ func (s *UserService) IncrementFailedLogin(userID string) error {
 
 	user, err := s.repo.GetByID(userID)
 	if err != nil {
+		logger.Error("Failed to get user for incrementing failed login counter",
+			zap.String("user_id", userID),
+			zap.Error(err),
+		)
 		return fmt.Errorf("failed to get user: %w", err)
 	}
 	if user == nil {
@@ -536,9 +676,27 @@ func (s *UserService) IncrementFailedLogin(userID string) error {
 	if user.FailedLoginAttempts >= MaxFailedLoginAttempts {
 		lockUntil := time.Now().Add(LockoutDuration).Unix()
 		user.LockedUntil = &lockUntil
+		logger.Warn("User account locked due to excessive failed login attempts",
+			zap.String("user_id", userID),
+			zap.String("username", user.Username),
+			zap.Int("failed_attempts", user.FailedLoginAttempts),
+			zap.Duration("lockout_duration", LockoutDuration),
+			zap.String("event_type", "account_lockout"),
+		)
+	} else {
+		logger.Debug("Failed login attempt recorded",
+			zap.String("user_id", userID),
+			zap.String("username", user.Username),
+			zap.Int("failed_attempts", user.FailedLoginAttempts),
+			zap.Int("max_attempts", MaxFailedLoginAttempts),
+		)
 	}
 
 	if err := s.repo.Update(user); err != nil {
+		logger.Error("Failed to update failed login attempts in database",
+			zap.String("user_id", userID),
+			zap.Error(err),
+		)
 		return fmt.Errorf("failed to update failed login attempts: %w", err)
 	}
 
@@ -689,13 +847,26 @@ func (s *UserService) EnableTOTP(userID, totpCode string) error {
 
 	user, err := s.repo.GetByID(userID)
 	if err != nil {
+		logger.Error("Failed to get user for enabling TOTP",
+			zap.String("user_id", userID),
+			zap.Error(err),
+		)
 		return fmt.Errorf("failed to get user: %w", err)
 	}
 	if user == nil {
+		logger.Warn("Enable 2FA failed - user not found",
+			zap.String("user_id", userID),
+			zap.String("event_type", "user_not_found"),
+		)
 		return ErrUserNotFound
 	}
 
 	if user.TOTPSecret == nil || *user.TOTPSecret == "" {
+		logger.Warn("Enable 2FA failed - TOTP secret not generated",
+			zap.String("user_id", userID),
+			zap.String("username", user.Username),
+			zap.String("event_type", "totp_secret_missing"),
+		)
 		return errors.New("TOTP secret not generated")
 	}
 
@@ -704,6 +875,10 @@ func (s *UserService) EnableTOTP(userID, totpCode string) error {
 	if s.encryptionKey != "" {
 		decryptedSecret, err := utils.DecryptTOTPSecret(secret, s.encryptionKey)
 		if err != nil {
+			logger.Error("Failed to decrypt TOTP secret for enablement",
+				zap.String("user_id", userID),
+				zap.Error(err),
+			)
 			return fmt.Errorf("failed to decrypt TOTP secret: %w", err)
 		}
 		secret = decryptedSecret
@@ -711,14 +886,29 @@ func (s *UserService) EnableTOTP(userID, totpCode string) error {
 
 	// Validate TOTP code
 	if !totp.Validate(totpCode, secret) {
+		logger.Warn("Enable 2FA failed - invalid TOTP code",
+			zap.String("user_id", userID),
+			zap.String("username", user.Username),
+			zap.String("event_type", "invalid_totp_code"),
+		)
 		return ErrInvalidTOTP
 	}
 
 	// Enable TOTP
 	user.TOTPEnabled = true
 	if err := s.repo.Update(user); err != nil {
+		logger.Error("Failed to enable TOTP in database",
+			zap.String("user_id", userID),
+			zap.Error(err),
+		)
 		return fmt.Errorf("failed to enable TOTP: %w", err)
 	}
+
+	logger.Info("2FA enabled successfully",
+		zap.String("user_id", userID),
+		zap.String("username", user.Username),
+		zap.String("event_type", "2fa_enabled"),
+	)
 
 	return nil
 }
@@ -731,9 +921,17 @@ func (s *UserService) DisableTOTP(userID string) error {
 
 	user, err := s.repo.GetByID(userID)
 	if err != nil {
+		logger.Error("Failed to get user for disabling TOTP",
+			zap.String("user_id", userID),
+			zap.Error(err),
+		)
 		return fmt.Errorf("failed to get user: %w", err)
 	}
 	if user == nil {
+		logger.Warn("Disable 2FA failed - user not found",
+			zap.String("user_id", userID),
+			zap.String("event_type", "user_not_found"),
+		)
 		return ErrUserNotFound
 	}
 
@@ -741,8 +939,18 @@ func (s *UserService) DisableTOTP(userID string) error {
 	user.TOTPEnabled = false
 	user.TOTPSecret = nil
 	if err := s.repo.Update(user); err != nil {
+		logger.Error("Failed to disable TOTP in database",
+			zap.String("user_id", userID),
+			zap.Error(err),
+		)
 		return fmt.Errorf("failed to disable TOTP: %w", err)
 	}
+
+	logger.Info("2FA disabled successfully",
+		zap.String("user_id", userID),
+		zap.String("username", user.Username),
+		zap.String("event_type", "2fa_disabled"),
+	)
 
 	return nil
 }
