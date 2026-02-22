@@ -56,17 +56,30 @@ This guide provides detailed information for developers working on the SMS Sync 
 ### Required Tools
 
 ```bash
-# Install Go (1.20+)
+# Install Go (1.24.0)
 https://golang.org/dl/
 
-# Install development tools
-go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-go install golang.org/x/tools/cmd/goimports@latest
-go install github.com/go-delve/delve/cmd/dlv@latest
+# Install pinned development tools
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
+go install golang.org/x/tools/cmd/goimports@v0.30.0
+go install github.com/go-delve/delve/cmd/dlv@v1.24.0
 
 # Install SQLite tools
 sudo apt-get install sqlite3  # Ubuntu/Debian
 brew install sqlite3          # macOS
+```
+
+### Tool Version Policy
+
+Use the same versions locally and in CI to avoid false-positive failures:
+
+- Go: `1.24.0`
+- golangci-lint: `v1.64.8`
+
+You can verify local versions with:
+
+```bash
+make verify-tools
 ```
 
 ### Git Hooks Setup

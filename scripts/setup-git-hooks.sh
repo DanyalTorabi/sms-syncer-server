@@ -5,6 +5,8 @@
 
 set -e
 
+GOLANGCI_LINT_VERSION="v1.64.8"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -58,11 +60,11 @@ print_success "Go is installed: $(go version)"
 # Check if golangci-lint is installed
 if ! command -v golangci-lint &> /dev/null; then
     print_warning "golangci-lint is not installed"
-    print_info "Installing golangci-lint..."
+    print_info "Installing golangci-lint ${GOLANGCI_LINT_VERSION}..."
     
     # Install golangci-lint
     if command -v curl &> /dev/null; then
-        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
+        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin ${GOLANGCI_LINT_VERSION}
         
         # Add GOPATH/bin to PATH if not already there
         if [[ ":$PATH:" != *":$(go env GOPATH)/bin:"* ]]; then
@@ -166,7 +168,7 @@ echo "$STAGED_GO_FILES" | sed 's/^/  - /'
 if ! command -v golangci-lint &> /dev/null; then
     print_error "golangci-lint is not installed!"
     print_info "Please install it by running:"
-    print_info "  curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b \$(go env GOPATH)/bin"
+    print_info "  curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b \$(go env GOPATH)/bin ${GOLANGCI_LINT_VERSION}"
     print_info "Or visit: https://golangci-lint.run/usage/install/"
     exit 1
 fi
