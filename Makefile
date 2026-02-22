@@ -1,5 +1,10 @@
 # Server Makefile
 
+GO_VERSION ?= 1.24.0
+GOLANGCI_LINT_VERSION ?= v1.61.0
+GOIMPORTS_VERSION ?= v0.30.0
+DLV_VERSION ?= v1.24.0
+
 # Default target when running 'make' without arguments
 .PHONY: all
 all: build run
@@ -14,6 +19,22 @@ deps:
 	go get gopkg.in/natefinch/lumberjack.v2
 	go get github.com/golang-jwt/jwt/v5
 	go mod tidy
+
+# Install pinned development tools
+.PHONY: install-tools
+install-tools:
+	@echo "Installing pinned development tools..."
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+	go install golang.org/x/tools/cmd/goimports@$(GOIMPORTS_VERSION)
+	go install github.com/go-delve/delve/cmd/dlv@$(DLV_VERSION)
+
+# Print local tool versions
+.PHONY: verify-tools
+verify-tools:
+	@echo "Expected Go version: $(GO_VERSION)"
+	@echo "Expected golangci-lint version: $(GOLANGCI_LINT_VERSION)"
+	@echo "Go binary: $$(go version)"
+	@echo "golangci-lint binary: $$(golangci-lint version | head -n1)"
 
 # Build the server
 .PHONY: build

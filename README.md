@@ -15,7 +15,7 @@ A robust, production-ready SMS synchronization server built with Go, featuring J
 
 ## Prerequisites
 
-- Go 1.21 or later
+- Go 1.24.0
 - Git
 
 ## Setup
@@ -114,6 +114,9 @@ make fmt
 
 # Lint code
 make lint
+
+# Verify local tool versions match CI
+make verify-tools
 
 # Check specific linting issues
 make lint-line-length        # Check line length issues (lll linter)

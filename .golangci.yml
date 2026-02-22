@@ -4,13 +4,12 @@ run:
   tests: false
   build-tags:
     - integration
-  skip-files:
-    - ".*_test\\.go$"
 
 output:
-  format: colored-line-number
-  print-issued-lines: true
-  print-linter-name: true
+  formats:
+    - format: colored-line-number
+      print-issued-lines: true
+      print-linter-name: true
 
 linters-settings:
   gocyclo:
@@ -40,6 +39,9 @@ linters:
     - lll
 
 issues:
+  exclude-files:
+    - ".*_test\\.go$"
+
   exclude-rules:
     - path: cmd/
       linters:
