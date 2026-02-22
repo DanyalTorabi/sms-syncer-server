@@ -15,11 +15,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TODO(#102): Clean up permission test cases that verify handler-level permission checks
-// After PR #101, permission validation moved to middleware layer (pkg/middleware/auth_test.go).
-// Test cases checking for "missing permission" or "insufficient permissions" errors should be
-// removed from handler tests since handlers no longer perform these checks.
-
 // TestUserHandler_ListUsers tests the ListUsers handler
 func TestUserHandler_ListUsers(t *testing.T) {
 	gin.SetMode(gin.TestMode)

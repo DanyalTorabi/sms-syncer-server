@@ -152,7 +152,6 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 
 // AdminResetPassword handles admin password reset (POST /api/admin/users/:id/password/reset)
 // Allows admin to reset any user's password without knowing the old password
-// TODO: Add admin permission check when middleware #80 is implemented
 func (h *UserHandler) AdminResetPassword(c *gin.Context) {
 	logger.Info("Admin password reset endpoint called")
 
@@ -171,8 +170,7 @@ func (h *UserHandler) AdminResetPassword(c *gin.Context) {
 		return
 	}
 
-	// TODO: Check if authenticated user has admin permission (ticket #80)
-	// For now, this endpoint should only be mounted on admin routes with middleware
+	// Permission enforcement is handled by route middleware (RequirePermission).
 
 	// Parse request body
 	var req models.AdminResetPasswordRequest
