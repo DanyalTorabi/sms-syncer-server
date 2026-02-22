@@ -23,11 +23,11 @@ type LoginRequest struct {
 	TOTPCode string `json:"totp_code,omitempty"` // Optional 2FA code
 }
 
-// Claims represents the JWT claims structure with user ID and permission UUIDs
+// Claims represents the JWT claims structure with user ID and permission names
 type Claims struct {
 	UserID      string   `json:"user_id"`
 	Username    string   `json:"username"`
-	Permissions []string `json:"permissions"` // Array of permission UUIDs
+	Permissions []string `json:"permissions"` // Array of permission names (e.g. users:read)
 	jwt.RegisteredClaims
 }
 
@@ -47,7 +47,7 @@ func NewAuthHandler(cfg *config.Config, userService UserServiceInterface) *AuthH
 
 // Login handles user authentication and returns a JWT token
 // Authenticates with username/password and optional TOTP code
-// Returns JWT token with 1-hour expiry containing user ID and permission UUIDs
+// Returns JWT token with 1-hour expiry containing user ID and permission names
 func (h *AuthHandler) Login(c *gin.Context) {
 	logger.Info("Auth login endpoint called")
 	var req LoginRequest
@@ -91,17 +91,17 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	// Extract permission UUIDs
-	permissionIDs := make([]string, len(userWithPermissions.Permissions))
+	// Extract permission names for middleware permission checks
+	permissionNames := make([]string, len(userWithPermissions.Permissions))
 	for i, perm := range userWithPermissions.Permissions {
-		permissionIDs[i] = perm.ID
+		permissionNames[i] = perm.Name
 	}
 
 	// Create JWT token with proper claims
 	claims := Claims{
 		UserID:      user.ID,
 		Username:    user.Username,
-		Permissions: permissionIDs,
+		Permissions: permissionNames,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(h.config.JWT.TokenExpiry)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -125,7 +125,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	logger.Info("User authenticated successfully",
 		zap.String("user_id", user.ID),
 		zap.String("username", user.Username),
-		zap.Int("permission_count", len(permissionIDs)),
+		zap.Int("permission_count", len(permissionNames)),
 	)
 
 	c.JSON(http.StatusOK, gin.H{

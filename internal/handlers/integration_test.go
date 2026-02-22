@@ -17,6 +17,7 @@ import (
 	"sms-sync-server/internal/services"
 	"sms-sync-server/pkg/middleware"
 
+	"github.com/pquerna/otp/totp"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -52,7 +53,7 @@ func setupIntegrationTest(t *testing.T) *IntegrationTestSuite {
 	cfg.JWT.TokenExpiry = 24 * time.Hour
 	cfg.Logging.Level = "info"
 	cfg.Logging.Path = "test.log"
-	cfg.Security.TOTPEncryptionKey = "test-encryption-key-32-chars-long!"
+	cfg.Security.TOTPEncryptionKey = "12345678901234567890123456789012"
 
 	// Initialize database
 	database, err := db.NewDatabase(cfg.Database.DSN)
@@ -300,7 +301,6 @@ func extractUserIDFromResponse(t *testing.T, response map[string]interface{}) st
 
 // TestUserLifecycle tests the complete user lifecycle: create, read, update, delete
 func TestUserLifecycle(t *testing.T) {
-	t.Skip("User lifecycle tests deferred - self-service endpoints require proper permission checks. See #110")
 	suite := setupIntegrationTest(t)
 	defer suite.cleanup()
 
@@ -380,7 +380,6 @@ func TestUserLifecycle(t *testing.T) {
 
 // TestTwoFactorAuthenticationFlow tests 2FA setup and usage
 func TestTwoFactorAuthenticationFlow(t *testing.T) {
-	t.Skip("2FA tests deferred - requires proper TOTP implementation. See #110")
 	suite := setupIntegrationTest(t)
 	defer suite.cleanup()
 
@@ -467,7 +466,6 @@ func TestTwoFactorAuthenticationFlow(t *testing.T) {
 
 // TestPermissionEnforcement tests that endpoints enforce permissions correctly
 func TestPermissionEnforcement(t *testing.T) {
-	t.Skip("Permission enforcement tests deferred - requires proper permission loading after group assignment. See #110")
 	suite := setupIntegrationTest(t)
 	defer suite.cleanup()
 
@@ -528,7 +526,6 @@ func TestPermissionEnforcement(t *testing.T) {
 
 // TestGroupManagement tests group creation, assignment, and permission cascading
 func TestGroupManagement(t *testing.T) {
-	t.Skip("Group management tests deferred - requires proper permission loading after group assignment. See #110")
 	suite := setupIntegrationTest(t)
 	defer suite.cleanup()
 
@@ -560,14 +557,16 @@ func TestGroupManagement(t *testing.T) {
 		w := suite.makeAuthenticatedRequest(t, "GET", "/api/groups?limit=10&offset=0", adminToken, nil)
 		assert.Equal(t, http.StatusOK, w.Code)
 
-		var groupsResp []map[string]interface{}
+		var groupsResp map[string]interface{}
 		json.Unmarshal(w.Body.Bytes(), &groupsResp)
-		assert.Greater(t, len(groupsResp), 0, "Should have at least one group")
+		groups, ok := groupsResp["groups"].([]interface{})
+		assert.True(t, ok)
+		assert.Greater(t, len(groups), 0, "Should have at least one group")
 	})
 
 	t.Run("Assign User to Group", func(t *testing.T) {
 		suite.registerTestUser(t, "regular_user", "RegularPass123!")
-		suite.loginTestUser(t, "regular_user", "RegularPass123!", "")
+		regularToken := suite.loginTestUser(t, "regular_user", "RegularPass123!", "")
 
 		// Get user ID
 		loginData := map[string]string{"username": "regular_user", "password": "RegularPass123!"}
@@ -583,6 +582,7 @@ func TestGroupManagement(t *testing.T) {
 		// Create group first
 		createGroupReq := map[string]string{"name": "AssignmentTestGroup"}
 		w = suite.makeAuthenticatedRequest(t, "POST", "/api/groups", adminToken, createGroupReq)
+		assert.Equal(t, http.StatusCreated, w.Code)
 		var createdGroup map[string]interface{}
 		json.Unmarshal(w.Body.Bytes(), &createdGroup)
 		groupID := createdGroup["id"].(string)
@@ -592,8 +592,8 @@ func TestGroupManagement(t *testing.T) {
 		w = suite.makeAuthenticatedRequest(t, "POST", "/api/users/"+userID+"/groups", adminToken, assignReq)
 		assert.Equal(t, http.StatusOK, w.Code)
 
-		// Verify user is in group - use admin token (has permission)
-		w = suite.makeAuthenticatedRequest(t, "GET", "/api/users/"+userID+"/groups", adminToken, nil)
+		// Verify user is in group using self-access token
+		w = suite.makeAuthenticatedRequest(t, "GET", "/api/users/"+userID+"/groups", regularToken, nil)
 		assert.Equal(t, http.StatusOK, w.Code)
 	})
 }
@@ -705,8 +705,5 @@ func TestErrorHandling(t *testing.T) {
 
 // generateTOTPCode generates a valid TOTP code from a secret (helper for tests)
 func generateTOTPCode(secret string) (string, error) {
-	// This is a placeholder - in real implementation, use the TOTP library
-	// For now, return empty string to allow test to proceed
-	// TODO(#110): Implement proper TOTP code generation for integration tests
-	return "", nil
+	return totp.GenerateCode(secret, time.Now())
 }

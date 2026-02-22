@@ -77,7 +77,9 @@ func AuthMiddleware(cfg *config.Config) gin.HandlerFunc {
 		}
 
 		// Test case: "valid token"
+		// Keep both keys for backward compatibility with existing handlers/tests.
 		c.Set("userID", claims.UserID)
+		c.Set("user_id", claims.UserID)
 		c.Set("permissions", claims.Permissions)
 		c.Next()
 	}
