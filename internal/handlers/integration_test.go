@@ -566,7 +566,7 @@ func TestGroupManagement(t *testing.T) {
 
 	t.Run("Assign User to Group", func(t *testing.T) {
 		suite.registerTestUser(t, "regular_user", "RegularPass123!")
-		suite.loginTestUser(t, "regular_user", "RegularPass123!", "")
+		regularToken := suite.loginTestUser(t, "regular_user", "RegularPass123!", "")
 
 		// Get user ID
 		loginData := map[string]string{"username": "regular_user", "password": "RegularPass123!"}
@@ -582,6 +582,7 @@ func TestGroupManagement(t *testing.T) {
 		// Create group first
 		createGroupReq := map[string]string{"name": "AssignmentTestGroup"}
 		w = suite.makeAuthenticatedRequest(t, "POST", "/api/groups", adminToken, createGroupReq)
+		assert.Equal(t, http.StatusCreated, w.Code)
 		var createdGroup map[string]interface{}
 		json.Unmarshal(w.Body.Bytes(), &createdGroup)
 		groupID := createdGroup["id"].(string)
@@ -591,8 +592,8 @@ func TestGroupManagement(t *testing.T) {
 		w = suite.makeAuthenticatedRequest(t, "POST", "/api/users/"+userID+"/groups", adminToken, assignReq)
 		assert.Equal(t, http.StatusOK, w.Code)
 
-		// Verify user is in group - use admin token (has permission)
-		w = suite.makeAuthenticatedRequest(t, "GET", "/api/users/"+userID+"/groups", adminToken, nil)
+		// Verify user is in group using self-access token
+		w = suite.makeAuthenticatedRequest(t, "GET", "/api/users/"+userID+"/groups", regularToken, nil)
 		assert.Equal(t, http.StatusOK, w.Code)
 	})
 }
