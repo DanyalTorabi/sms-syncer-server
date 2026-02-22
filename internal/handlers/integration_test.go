@@ -300,7 +300,7 @@ func extractUserIDFromResponse(t *testing.T, response map[string]interface{}) st
 
 // TestUserLifecycle tests the complete user lifecycle: create, read, update, delete
 func TestUserLifecycle(t *testing.T) {
-	t.Skip("User lifecycle tests deferred - self-service endpoints require proper permission checks. See TODO(#XX)")
+	t.Skip("User lifecycle tests deferred - self-service endpoints require proper permission checks. See #110")
 	suite := setupIntegrationTest(t)
 	defer suite.cleanup()
 
@@ -380,7 +380,7 @@ func TestUserLifecycle(t *testing.T) {
 
 // TestTwoFactorAuthenticationFlow tests 2FA setup and usage
 func TestTwoFactorAuthenticationFlow(t *testing.T) {
-	t.Skip("2FA tests deferred - requires proper TOTP implementation. See TODO(#XX)")
+	t.Skip("2FA tests deferred - requires proper TOTP implementation. See #110")
 	suite := setupIntegrationTest(t)
 	defer suite.cleanup()
 
@@ -467,7 +467,7 @@ func TestTwoFactorAuthenticationFlow(t *testing.T) {
 
 // TestPermissionEnforcement tests that endpoints enforce permissions correctly
 func TestPermissionEnforcement(t *testing.T) {
-	t.Skip("Permission enforcement tests deferred - requires proper permission loading after group assignment. See TODO(#XX)")
+	t.Skip("Permission enforcement tests deferred - requires proper permission loading after group assignment. See #110")
 	suite := setupIntegrationTest(t)
 	defer suite.cleanup()
 
@@ -528,7 +528,7 @@ func TestPermissionEnforcement(t *testing.T) {
 
 // TestGroupManagement tests group creation, assignment, and permission cascading
 func TestGroupManagement(t *testing.T) {
-	t.Skip("Group management tests deferred - requires proper permission loading after group assignment. See TODO(#XX)")
+	t.Skip("Group management tests deferred - requires proper permission loading after group assignment. See #110")
 	suite := setupIntegrationTest(t)
 	defer suite.cleanup()
 
@@ -707,6 +707,6 @@ func TestErrorHandling(t *testing.T) {
 func generateTOTPCode(secret string) (string, error) {
 	// This is a placeholder - in real implementation, use the TOTP library
 	// For now, return empty string to allow test to proceed
-	// TODO(#XX): Implement proper TOTP code generation for integration tests
+	// TODO(#110): Implement proper TOTP code generation for integration tests
 	return "", nil
 }
