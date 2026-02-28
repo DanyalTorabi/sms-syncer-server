@@ -42,6 +42,12 @@ cp .env.example .env
 **Optional Environment Variables:**
 - `SERVER_PORT` - Port to listen on (default: 8080)
 - `SERVER_HOST` - Host to bind to (default: localhost)
+- `APP_ENV` - Runtime environment (`development`, `staging`, `production`) (default: development)
+- `ALLOW_INSECURE_HTTP` - Allow plain HTTP in enforced environments (default: false)
+- `TLS_ENABLED` - Enable HTTPS/TLS mode (default: false)
+- `TLS_CERT_FILE` - TLS certificate file path (required when TLS_ENABLED=true)
+- `TLS_KEY_FILE` - TLS private key file path (required when TLS_ENABLED=true)
+- `TLS_REDIRECT_HTTP` - Redirect HTTP requests to HTTPS (default: false)
 - `DATABASE_DSN` - Database connection string (default: file:sms.db?cache=shared&mode=rwc)
 - `LOG_LEVEL` - Logging level: debug, info, warn, error (default: info)
 - `JWT_TOKEN_EXPIRY` - JWT token expiry duration (default: 1h)

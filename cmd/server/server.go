@@ -28,6 +28,10 @@ func SetupServer(cfg *config.Config) (*http.Server, error) {
 		return nil, errors.New("configuration is required")
 	}
 
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid configuration: %w", err)
+	}
+
 	if cfg.Server.Port <= 0 {
 		return nil, errors.New("invalid server port")
 	}
@@ -58,6 +62,10 @@ func SetupServer(cfg *config.Config) (*http.Server, error) {
 
 	// Initialize router
 	router := gin.Default()
+
+	if cfg.Server.TLS.RedirectHTTP {
+		router.Use(middleware.HTTPSRedirectMiddleware())
+	}
 
 	// Setup routes
 	setupRoutes(router, cfg, smsService, userService, groupService, permissionService)

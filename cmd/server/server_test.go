@@ -70,6 +70,16 @@ func TestSetupServer(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, srv)
 
+	// Test with staging environment requiring TLS
+	cfg = config.DefaultConfig()
+	cfg.Database.DSN = "file:test-staging.db?mode=memory&cache=shared"
+	cfg.Server.Environment = "staging"
+	cfg.Server.TLS.Enabled = false
+	cfg.Server.AllowInsecureHTTP = false
+	srv, err = SetupServer(cfg)
+	assert.Error(t, err)
+	assert.Nil(t, srv)
+
 	// Test with TLS enabled but invalid cert/key files
 	cfg = config.DefaultConfig()
 	cfg.Server.Port = 8080

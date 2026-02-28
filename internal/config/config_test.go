@@ -15,9 +15,12 @@ func TestDefaultConfig(t *testing.T) {
 	assert.NotNil(t, cfg)
 	assert.Equal(t, 8080, cfg.Server.Port)
 	assert.Equal(t, "localhost", cfg.Server.Host)
+	assert.Equal(t, "development", cfg.Server.Environment)
+	assert.False(t, cfg.Server.AllowInsecureHTTP)
 	assert.False(t, cfg.Server.TLS.Enabled)
 	assert.Equal(t, "", cfg.Server.TLS.CertFile)
 	assert.Equal(t, "", cfg.Server.TLS.KeyFile)
+	assert.False(t, cfg.Server.TLS.RedirectHTTP)
 	assert.Equal(t, "file:sms.db?cache=shared&mode=rwc", cfg.Database.DSN)
 	assert.Equal(t, "your-secret-key", cfg.JWT.Secret)
 	assert.Equal(t, "info", cfg.Logging.Level)
@@ -118,6 +121,9 @@ func TestLoadFromEnv(t *testing.T) {
 	originalTLSEnabled := os.Getenv("TLS_ENABLED")
 	originalTLSCertFile := os.Getenv("TLS_CERT_FILE")
 	originalTLSKeyFile := os.Getenv("TLS_KEY_FILE")
+	originalAPPEnv := os.Getenv("APP_ENV")
+	originalAllowInsecureHTTP := os.Getenv("ALLOW_INSECURE_HTTP")
+	originalTLSRedirectHTTP := os.Getenv("TLS_REDIRECT_HTTP")
 
 	defer func() {
 		// Restore original env vars
@@ -131,6 +137,9 @@ func TestLoadFromEnv(t *testing.T) {
 		_ = os.Setenv("TLS_ENABLED", originalTLSEnabled)
 		_ = os.Setenv("TLS_CERT_FILE", originalTLSCertFile)
 		_ = os.Setenv("TLS_KEY_FILE", originalTLSKeyFile)
+		_ = os.Setenv("APP_ENV", originalAPPEnv)
+		_ = os.Setenv("ALLOW_INSECURE_HTTP", originalAllowInsecureHTTP)
+		_ = os.Setenv("TLS_REDIRECT_HTTP", originalTLSRedirectHTTP)
 	}()
 
 	tests := []struct {
@@ -182,6 +191,34 @@ func TestLoadFromEnv(t *testing.T) {
 				_ = os.Setenv("TLS_ENABLED", "not-a-bool")
 			},
 			expectError: true,
+		},
+		{
+			name: "valid environment policy env values",
+			setupEnv: func() {
+				_ = os.Setenv("JWT_SECRET", "test-jwt-secret")
+				_ = os.Setenv("TOTP_ENCRYPTION_KEY", "12345678901234567890123456789012abcdefabcdefabcdefabcdefabcdefab")
+				_ = os.Setenv("APP_ENV", "staging")
+				_ = os.Setenv("ALLOW_INSECURE_HTTP", "true")
+				_ = os.Setenv("TLS_REDIRECT_HTTP", "true")
+			},
+			expectError: false,
+			validateCfg: func(t *testing.T, cfg *Config) {
+				assert.Equal(t, "staging", cfg.Server.Environment)
+				assert.True(t, cfg.Server.AllowInsecureHTTP)
+				assert.True(t, cfg.Server.TLS.RedirectHTTP)
+			},
+		},
+		{
+			name: "invalid APP_ENV value",
+			setupEnv: func() {
+				_ = os.Setenv("JWT_SECRET", "test-jwt-secret")
+				_ = os.Setenv("TOTP_ENCRYPTION_KEY", "12345678901234567890123456789012abcdefabcdefabcdefabcdefabcdefab")
+				_ = os.Setenv("APP_ENV", "invalid-env")
+			},
+			expectError: false,
+			validateCfg: func(t *testing.T, cfg *Config) {
+				assert.Equal(t, "invalid-env", cfg.Server.Environment)
+			},
 		},
 		{
 			name: "missing JWT_SECRET",
@@ -265,6 +302,9 @@ func TestLoadFromEnv(t *testing.T) {
 			_ = os.Unsetenv("TLS_ENABLED")
 			_ = os.Unsetenv("TLS_CERT_FILE")
 			_ = os.Unsetenv("TLS_KEY_FILE")
+			_ = os.Unsetenv("APP_ENV")
+			_ = os.Unsetenv("ALLOW_INSECURE_HTTP")
+			_ = os.Unsetenv("TLS_REDIRECT_HTTP")
 			tt.setupEnv()
 			cfg, err := LoadFromEnv()
 
@@ -352,6 +392,40 @@ func TestValidateConfig(t *testing.T) {
 				return cfg
 			},
 			wantErr: false,
+		},
+		{
+			name: "staging requires TLS when insecure mode not allowed",
+			setupCfg: func() *Config {
+				cfg := &Config{}
+				cfg.JWT.Secret = "test-secret"
+				cfg.JWT.TokenExpiry = 1 * time.Hour
+				cfg.Security.TOTPEncryptionKey = "12345678901234567890123456789012"
+				cfg.Server.Port = 8080
+				cfg.Server.Environment = "staging"
+				cfg.Server.TLS.Enabled = false
+				cfg.Server.AllowInsecureHTTP = false
+				cfg.Database.DSN = "file:test.db"
+				cfg.Logging.Level = "info"
+				return cfg
+			},
+			wantErr:    true,
+			errMessage: "TLS is required for APP_ENV=staging",
+		},
+		{
+			name: "invalid APP_ENV is rejected",
+			setupCfg: func() *Config {
+				cfg := &Config{}
+				cfg.JWT.Secret = "test-secret"
+				cfg.JWT.TokenExpiry = 1 * time.Hour
+				cfg.Security.TOTPEncryptionKey = "12345678901234567890123456789012"
+				cfg.Server.Port = 8080
+				cfg.Server.Environment = "unknown-env"
+				cfg.Database.DSN = "file:test.db"
+				cfg.Logging.Level = "info"
+				return cfg
+			},
+			wantErr:    true,
+			errMessage: "invalid APP_ENV",
 		},
 		{
 			name: "TLS enabled without cert file",
