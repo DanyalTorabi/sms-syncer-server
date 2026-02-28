@@ -3,10 +3,20 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
+	"encoding/pem"
+	"math/big"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
+	"strconv"
 	"syscall"
 	"testing"
 	"time"
@@ -332,4 +342,143 @@ func TestStartServerWithContext(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("Server didn't shut down within timeout")
 	}
+}
+
+func TestSetupServerWithValidTLSConfig(t *testing.T) {
+	certPath, keyPath := generateTestTLSCertFiles(t)
+
+	cfg := config.DefaultConfig()
+	cfg.Database.DSN = "file:test-valid-tls.db?mode=memory&cache=shared"
+	cfg.Server.TLS.Enabled = true
+	cfg.Server.TLS.CertFile = certPath
+	cfg.Server.TLS.KeyFile = keyPath
+
+	srv, err := SetupServer(cfg)
+	assert.NoError(t, err)
+	assert.NotNil(t, srv)
+	assert.NotNil(t, srv.TLSConfig)
+	_ = srv.Close()
+}
+
+func TestStartServerWithContextHTTPSHealthCheck(t *testing.T) {
+	certPath, keyPath := generateTestTLSCertFiles(t)
+	port := getFreePort(t)
+
+	cfg := config.DefaultConfig()
+	cfg.Database.DSN = "file:test-https-health.db?mode=memory&cache=shared"
+	cfg.Server.Port = port
+	cfg.Server.TLS.Enabled = true
+	cfg.Server.TLS.CertFile = certPath
+	cfg.Server.TLS.KeyFile = keyPath
+
+	srv, err := SetupServer(cfg)
+	assert.NoError(t, err)
+	assert.NotNil(t, srv)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- StartServerWithContext(ctx, srv)
+	}()
+
+	time.Sleep(150 * time.Millisecond)
+
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12, InsecureSkipVerify: true}, //nolint:gosec // test only
+		},
+		Timeout: 3 * time.Second,
+	}
+
+	resp, err := client.Get("https://127.0.0.1:" + strconv.Itoa(port) + "/health")
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	if resp != nil {
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		_ = resp.Body.Close()
+	}
+
+	cancel()
+
+	select {
+	case err = <-errChan:
+		assert.NoError(t, err)
+	case <-time.After(2 * time.Second):
+		t.Fatal("HTTPS server did not shut down within timeout")
+	}
+}
+
+func generateTestTLSCertFiles(t *testing.T) (string, string) {
+	t.Helper()
+
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("failed to generate private key: %v", err)
+	}
+
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			CommonName: "localhost",
+		},
+		NotBefore:             time.Now().Add(-1 * time.Hour),
+		NotAfter:              time.Now().Add(24 * time.Hour),
+		DNSNames:              []string{"localhost"},
+		IPAddresses:           []net.IP{net.ParseIP("127.0.0.1")},
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+	}
+
+	derBytes, err := x509.CreateCertificate(rand.Reader, template, template, &privateKey.PublicKey, privateKey)
+	if err != nil {
+		t.Fatalf("failed to create certificate: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+	certPath := filepath.Join(tmpDir, "server.crt")
+	keyPath := filepath.Join(tmpDir, "server.key")
+
+	certFile, err := os.Create(certPath)
+	if err != nil {
+		t.Fatalf("failed to create cert file: %v", err)
+	}
+	defer certFile.Close()
+
+	err = pem.Encode(certFile, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
+	if err != nil {
+		t.Fatalf("failed to encode cert file: %v", err)
+	}
+
+	keyFile, err := os.Create(keyPath)
+	if err != nil {
+		t.Fatalf("failed to create key file: %v", err)
+	}
+	defer keyFile.Close()
+
+	err = pem.Encode(keyFile, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(privateKey)})
+	if err != nil {
+		t.Fatalf("failed to encode key file: %v", err)
+	}
+
+	return certPath, keyPath
+}
+
+func getFreePort(t *testing.T) int {
+	t.Helper()
+
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatalf("failed to get free port: %v", err)
+	}
+	defer listener.Close()
+
+	addr, ok := listener.Addr().(*net.TCPAddr)
+	if !ok {
+		t.Fatalf("failed to cast listener address to TCPAddr")
+	}
+
+	return addr.Port
 }

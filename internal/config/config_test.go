@@ -221,6 +221,15 @@ func TestLoadFromEnv(t *testing.T) {
 			},
 		},
 		{
+			name: "invalid ALLOW_INSECURE_HTTP value",
+			setupEnv: func() {
+				_ = os.Setenv("JWT_SECRET", "test-jwt-secret")
+				_ = os.Setenv("TOTP_ENCRYPTION_KEY", "12345678901234567890123456789012abcdefabcdefabcdefabcdefabcdefab")
+				_ = os.Setenv("ALLOW_INSECURE_HTTP", "maybe")
+			},
+			expectError: true,
+		},
+		{
 			name: "missing JWT_SECRET",
 			setupEnv: func() {
 				_ = os.Unsetenv("JWT_SECRET")
