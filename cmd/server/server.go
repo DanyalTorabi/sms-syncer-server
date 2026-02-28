@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net/http"
@@ -71,7 +72,45 @@ func SetupServer(cfg *config.Config) (*http.Server, error) {
 		IdleTimeout:       60 * time.Second,
 	}
 
+	tlsConfig, err := setupTLSConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	srv.TLSConfig = tlsConfig
+
 	return srv, nil
+}
+
+func setupTLSConfig(cfg *config.Config) (*tls.Config, error) {
+	if !cfg.Server.TLS.Enabled {
+		return nil, nil
+	}
+
+	certificate, err := tls.LoadX509KeyPair(cfg.Server.TLS.CertFile, cfg.Server.TLS.KeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load TLS certificate/key pair: %w", err)
+	}
+
+	return &tls.Config{
+		MinVersion:   tls.VersionTLS12,
+		Certificates: []tls.Certificate{certificate},
+	}, nil
+}
+
+func serverProtocol(srv *http.Server) string {
+	if srv.TLSConfig != nil {
+		return "https"
+	}
+
+	return "http"
+}
+
+func listenAndServe(srv *http.Server) error {
+	if srv.TLSConfig != nil {
+		return srv.ListenAndServeTLS("", "")
+	}
+
+	return srv.ListenAndServe()
 }
 
 // setupRoutes configures all the HTTP routes
@@ -267,8 +306,8 @@ func handleAddSMS(c *gin.Context, smsService *services.SMSService) {
 func StartServer(srv *http.Server) error {
 	// Start server in a goroutine
 	go func() {
-		logger.Info("Starting server", zap.String("addr", srv.Addr))
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		logger.Info("Starting server", zap.String("addr", srv.Addr), zap.String("protocol", serverProtocol(srv)))
+		if err := listenAndServe(srv); err != nil && err != http.ErrServerClosed {
 			logger.Fatal("Server error", zap.Error(err))
 		}
 	}()
@@ -295,8 +334,8 @@ func StartServer(srv *http.Server) error {
 func StartServerWithContext(ctx context.Context, srv *http.Server) error {
 	// Start server in a goroutine
 	go func() {
-		logger.Info("Starting server", zap.String("addr", srv.Addr))
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		logger.Info("Starting server", zap.String("addr", srv.Addr), zap.String("protocol", serverProtocol(srv)))
+		if err := listenAndServe(srv); err != nil && err != http.ErrServerClosed {
 			logger.Fatal("Server error", zap.Error(err))
 		}
 	}()
