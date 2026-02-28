@@ -62,6 +62,19 @@ See [`.env.example`](.env.example) for comprehensive configuration documentation
 go run cmd/server/main.go
 ```
 
+### Local HTTPS Quick Start
+
+```bash
+# Generate self-signed local certs
+make tls-cert
+
+# Run server over HTTPS
+make run-https-local
+
+# Verify endpoint (self-signed cert)
+curl -k https://localhost:8080/health
+```
+
 ## API Endpoints
 
 ### Health Check

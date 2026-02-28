@@ -64,6 +64,41 @@ The following environment variables **MUST** be set before running the server in
 - **Default**: `localhost`
 - **Example**: `SERVER_HOST=0.0.0.0` (for Docker/production)
 
+#### `APP_ENV`
+- **Description**: Runtime environment profile
+- **Type**: String
+- **Default**: `development`
+- **Valid Values**: `development`, `testing`, `staging`, `production` (aliases supported)
+- **Security Note**: `staging` and `production` require TLS unless explicitly overridden
+
+#### `ALLOW_INSECURE_HTTP`
+- **Description**: Emergency override to allow non-TLS server startup in TLS-enforced environments
+- **Type**: Boolean (`true`/`false`)
+- **Default**: `false`
+- **Recommendation**: Keep `false` in staging/production; use only for short-lived incident response
+
+#### `TLS_ENABLED`
+- **Description**: Enables native HTTPS listener
+- **Type**: Boolean
+- **Default**: `false`
+- **Required With**: `TLS_CERT_FILE`, `TLS_KEY_FILE`
+
+#### `TLS_CERT_FILE`
+- **Description**: Path to TLS certificate file (PEM)
+- **Type**: File path
+- **Required**: When `TLS_ENABLED=true`
+
+#### `TLS_KEY_FILE`
+- **Description**: Path to TLS private key file (PEM)
+- **Type**: File path
+- **Required**: When `TLS_ENABLED=true`
+
+#### `TLS_REDIRECT_HTTP`
+- **Description**: Redirects HTTP requests to HTTPS (`308 Permanent Redirect`)
+- **Type**: Boolean
+- **Default**: `false`
+- **Recommended**: `true` when traffic may still reach HTTP endpoints
+
 #### `DATABASE_DSN`
 - **Description**: Database connection string
 - **Type**: String (DSN format)
@@ -280,14 +315,46 @@ JWT_SECRET="$(aws ssm get-parameter --name /prod/jwt-secret --with-decryption --
 TOTP_ENCRYPTION_KEY="$(aws ssm get-parameter --name /prod/totp-encryption-key --with-decryption --query Parameter.Value --output text)"
 
 # Configuration
+APP_ENV="production"
 SERVER_PORT="8080"
 SERVER_HOST="0.0.0.0"
+TLS_ENABLED="true"
+TLS_CERT_FILE="/etc/ssl/certs/sms-server.crt"
+TLS_KEY_FILE="/etc/ssl/private/sms-server.key"
+TLS_REDIRECT_HTTP="true"
+ALLOW_INSECURE_HTTP="false"
 DATABASE_DSN="file:/data/prod-sms.db?journal=wal"
 LOG_LEVEL="info"
 JWT_TOKEN_EXPIRY="24h"
 ADMIN_USERNAME="admin"
 ADMIN_PASSWORD="$(aws ssm get-parameter --name /prod/admin-password --with-decryption --query Parameter.Value --output text)"
 ```
+
+### TLS Deployment Patterns
+
+1. **Native TLS in app**
+  - Set `TLS_ENABLED=true` and provide cert/key file paths
+  - Good for simple deployments and local/dev parity
+
+2. **Reverse proxy termination (nginx/caddy/alb)**
+  - Terminate TLS at proxy and forward traffic to app
+  - Keep external endpoint HTTPS and enforce secure headers at edge
+
+### Certificate Rotation Procedure
+
+1. Provision new certificate and key on host/secret store.
+2. Validate certificate chain and expiry date.
+3. Update `TLS_CERT_FILE`/`TLS_KEY_FILE` targets (or secret mounts).
+4. Restart service with health-check verification.
+5. Confirm API and auth flows over HTTPS.
+6. Remove old certificate artifacts after successful rollout.
+
+### TLS Rollback Procedure
+
+1. Re-point cert/key paths to last known good pair.
+2. Restart server and verify `GET /health` over HTTPS.
+3. If cert rollback is not possible, temporarily set `ALLOW_INSECURE_HTTP=true` only under incident controls.
+4. Open incident follow-up to restore TLS-compliant state immediately.
 
 ---
 

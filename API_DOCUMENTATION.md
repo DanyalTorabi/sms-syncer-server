@@ -101,7 +101,7 @@ The token contains the following claims:
 #### Example Request
 
 ```bash
-curl -X POST http://localhost:8080/api/auth/login \
+curl -X POST https://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "username": "admin",
@@ -181,7 +181,7 @@ Creates a new user account. Validates username, email, and password strength. Us
 #### Example Request
 
 ```bash
-curl -X POST http://localhost:8080/api/users \
+curl -X POST https://localhost:8080/api/users \
   -H "Content-Type: application/json" \
   -d '{
     "username": "johndoe",
@@ -262,13 +262,13 @@ Allows users to change their own password. Requires authentication and verificat
 
 ```bash
 # Get authentication token
-TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
+TOKEN=$(curl -s -X POST https://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"testuser","password":"oldpass"}' \
   | jq -r '.token')
 
 # Change password
-curl -X POST http://localhost:8080/api/users/550e8400-e29b-41d4-a716-446655440000/password \
+curl -X POST https://localhost:8080/api/users/550e8400-e29b-41d4-a716-446655440000/password \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -331,7 +331,7 @@ Allows administrators to reset a user's password without knowing the current pas
 
 ```bash
 # Admin resets user password
-curl -X POST http://localhost:8080/api/admin/users/550e8400-e29b-41d4-a716-446655440000/password/reset \
+curl -X POST https://localhost:8080/api/admin/users/550e8400-e29b-41d4-a716-446655440000/password/reset \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -394,7 +394,7 @@ No request body required.
 #### Example Request
 
 ```bash
-curl -X POST http://localhost:8080/api/auth/2fa/generate \
+curl -X POST https://localhost:8080/api/auth/2fa/generate \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json"
 ```
@@ -453,7 +453,7 @@ Enables two-factor authentication for the authenticated user after validating a 
 #### Example Request
 
 ```bash
-curl -X POST http://localhost:8080/api/auth/2fa/enable \
+curl -X POST https://localhost:8080/api/auth/2fa/enable \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -504,7 +504,7 @@ No request body required.
 #### Example Request
 
 ```bash
-curl -X POST http://localhost:8080/api/auth/2fa/disable \
+curl -X POST https://localhost:8080/api/auth/2fa/disable \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json"
 ```
@@ -657,13 +657,13 @@ To get a token, use the login endpoint documented above.
 
 ```bash
 # Get authentication token first
-TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
+TOKEN=$(curl -s -X POST https://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"testuser","password":"testpass"}' \
   | jq -r '.token')
 
 # Add SMS message
-curl -X POST http://localhost:8080/api/sms/add \
+curl -X POST https://localhost:8080/api/sms/add \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -721,7 +721,7 @@ Test the endpoint with different scenarios:
 
 ```bash
 # Test missing required field
-curl -X POST http://localhost:8080/api/sms/add \
+curl -X POST https://localhost:8080/api/sms/add \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"phoneNumber": "+1234567890"}'
@@ -729,7 +729,7 @@ curl -X POST http://localhost:8080/api/sms/add \
 # Expected: 400 Bad Request with validation error
 
 # Test successful addition
-curl -X POST http://localhost:8080/api/sms/add \
+curl -X POST https://localhost:8080/api/sms/add \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -796,7 +796,7 @@ Retrieves a paginated list of all users in the system. Supports filtering by act
 #### Example Request
 
 ```bash
-curl -X GET "http://localhost:8080/api/users?limit=20&offset=0&active=true" \
+curl -X GET "https://localhost:8080/api/users?limit=20&offset=0&active=true" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -861,7 +861,7 @@ Retrieves detailed information about a specific user, including their groups and
 #### Example Request
 
 ```bash
-curl -X GET http://localhost:8080/api/users/550e8400-e29b-41d4-a716-446655440000 \
+curl -X GET https://localhost:8080/api/users/550e8400-e29b-41d4-a716-446655440000 \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -933,7 +933,7 @@ Updates a user's information. Users can update their own email address without s
 
 ```bash
 # Self-update email (no special permission needed)
-curl -X PUT http://localhost:8080/api/users/550e8400-e29b-41d4-a716-446655440000 \
+curl -X PUT https://localhost:8080/api/users/550e8400-e29b-41d4-a716-446655440000 \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -941,7 +941,7 @@ curl -X PUT http://localhost:8080/api/users/550e8400-e29b-41d4-a716-446655440000
   }'
 
 # Admin update user status (requires users:write)
-curl -X PUT http://localhost:8080/api/users/550e8400-e29b-41d4-a716-446655440000 \
+curl -X PUT https://localhost:8080/api/users/550e8400-e29b-41d4-a716-446655440000 \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -986,7 +986,7 @@ No response body.
 #### Example Request
 
 ```bash
-curl -X DELETE http://localhost:8080/api/users/550e8400-e29b-41d4-a716-446655440000 \
+curl -X DELETE https://localhost:8080/api/users/550e8400-e29b-41d4-a716-446655440000 \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -1042,7 +1042,7 @@ No response body.
 #### Example Request
 
 ```bash
-curl -X POST http://localhost:8080/api/users/550e8400-e29b-41d4-a716-446655440000/groups \
+curl -X POST https://localhost:8080/api/users/550e8400-e29b-41d4-a716-446655440000/groups \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -1087,7 +1087,7 @@ No response body.
 #### Example Request
 
 ```bash
-curl -X DELETE http://localhost:8080/api/users/550e8400-e29b-41d4-a716-446655440000/groups/group-uuid-123 \
+curl -X DELETE https://localhost:8080/api/users/550e8400-e29b-41d4-a716-446655440000/groups/group-uuid-123 \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -1146,7 +1146,7 @@ Retrieves a list of all groups a user belongs to. Users can access their own gro
 #### Example Request
 
 ```bash
-curl -X GET http://localhost:8080/api/users/550e8400-e29b-41d4-a716-446655440000/groups \
+curl -X GET https://localhost:8080/api/users/550e8400-e29b-41d4-a716-446655440000/groups \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -1210,7 +1210,7 @@ Creates a new group in the system. Groups are collections of permissions that ca
 #### Example Request
 
 ```bash
-curl -X POST http://localhost:8080/api/groups \
+curl -X POST https://localhost:8080/api/groups \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -1278,7 +1278,7 @@ Retrieves a paginated list of all groups in the system.
 #### Example Request
 
 ```bash
-curl -X GET "http://localhost:8080/api/groups?limit=20&offset=0" \
+curl -X GET "https://localhost:8080/api/groups?limit=20&offset=0" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -1338,7 +1338,7 @@ Retrieves detailed information about a specific group, including its associated 
 #### Example Request
 
 ```bash
-curl -X GET http://localhost:8080/api/groups/550e8400-e29b-41d4-a716-446655440000 \
+curl -X GET https://localhost:8080/api/groups/550e8400-e29b-41d4-a716-446655440000 \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -1405,7 +1405,7 @@ Updates a group's information. Can modify name, description, and active status.
 #### Example Request
 
 ```bash
-curl -X PUT http://localhost:8080/api/groups/550e8400-e29b-41d4-a716-446655440000 \
+curl -X PUT https://localhost:8080/api/groups/550e8400-e29b-41d4-a716-446655440000 \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -1450,7 +1450,7 @@ No response body.
 #### Example Request
 
 ```bash
-curl -X DELETE http://localhost:8080/api/groups/550e8400-e29b-41d4-a716-446655440000 \
+curl -X DELETE https://localhost:8080/api/groups/550e8400-e29b-41d4-a716-446655440000 \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -1511,7 +1511,7 @@ Assigns a permission to a group, granting all users in that group the specified 
 #### Example Request
 
 ```bash
-curl -X POST http://localhost:8080/api/groups/550e8400-e29b-41d4-a716-446655440000/permissions \
+curl -X POST https://localhost:8080/api/groups/550e8400-e29b-41d4-a716-446655440000/permissions \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -1557,7 +1557,7 @@ No response body.
 #### Example Request
 
 ```bash
-curl -X DELETE http://localhost:8080/api/groups/550e8400-e29b-41d4-a716-446655440000/permissions/perm-uuid-123 \
+curl -X DELETE https://localhost:8080/api/groups/550e8400-e29b-41d4-a716-446655440000/permissions/perm-uuid-123 \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -1626,7 +1626,7 @@ Creates a new permission in the system. Permissions follow the `resource:action`
 #### Example Request
 
 ```bash
-curl -X POST http://localhost:8080/api/permissions \
+curl -X POST https://localhost:8080/api/permissions \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -1698,7 +1698,7 @@ Retrieves a paginated list of all permissions in the system.
 #### Example Request
 
 ```bash
-curl -X GET "http://localhost:8080/api/permissions?limit=20&offset=0" \
+curl -X GET "https://localhost:8080/api/permissions?limit=20&offset=0" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -1748,7 +1748,7 @@ Retrieves detailed information about a specific permission.
 #### Example Request
 
 ```bash
-curl -X GET http://localhost:8080/api/permissions/perm-uuid-1 \
+curl -X GET https://localhost:8080/api/permissions/perm-uuid-1 \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -1812,7 +1812,7 @@ Updates a permission's information. Only description and active status can be mo
 #### Example Request
 
 ```bash
-curl -X PUT http://localhost:8080/api/permissions/perm-uuid-1 \
+curl -X PUT https://localhost:8080/api/permissions/perm-uuid-1 \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -1858,7 +1858,7 @@ No response body.
 #### Example Request
 
 ```bash
-curl -X DELETE http://localhost:8080/api/permissions/perm-uuid-1 \
+curl -X DELETE https://localhost:8080/api/permissions/perm-uuid-1 \
   -H "Authorization: Bearer $TOKEN"
 ```
 
