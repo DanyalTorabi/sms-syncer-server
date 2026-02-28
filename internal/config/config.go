@@ -19,6 +19,11 @@ type Config struct {
 	Server struct {
 		Port int    `json:"port"`
 		Host string `json:"host"`
+		TLS  struct {
+			Enabled  bool   `json:"enabled"`
+			CertFile string `json:"cert_file"`
+			KeyFile  string `json:"key_file"`
+		} `json:"tls"`
 	} `json:"server"`
 	Database struct {
 		DSN string `json:"dsn"`
@@ -84,6 +89,9 @@ func DefaultConfig() *Config {
 	config := &Config{}
 	config.Server.Port = 8080
 	config.Server.Host = "localhost"
+	config.Server.TLS.Enabled = false
+	config.Server.TLS.CertFile = ""
+	config.Server.TLS.KeyFile = ""
 	config.Database.DSN = "file:sms.db?cache=shared&mode=rwc"
 	config.JWT.Secret = "your-secret-key"                                  // This should be changed in production
 	config.JWT.TokenExpiry = 1 * time.Hour                                 // 1-hour expiry as per ticket #69
@@ -117,6 +125,25 @@ func LoadFromEnv() (*Config, error) {
 	// SERVER_HOST (optional, default: localhost)
 	if host := os.Getenv("SERVER_HOST"); host != "" {
 		config.Server.Host = host
+	}
+
+	// TLS_ENABLED (optional, default: false)
+	if tlsEnabled := os.Getenv("TLS_ENABLED"); tlsEnabled != "" {
+		enabled, err := strconv.ParseBool(tlsEnabled)
+		if err != nil {
+			return nil, fmt.Errorf("invalid TLS_ENABLED: %w", err)
+		}
+		config.Server.TLS.Enabled = enabled
+	}
+
+	// TLS_CERT_FILE (required when TLS_ENABLED=true)
+	if certFile := os.Getenv("TLS_CERT_FILE"); certFile != "" {
+		config.Server.TLS.CertFile = certFile
+	}
+
+	// TLS_KEY_FILE (required when TLS_ENABLED=true)
+	if keyFile := os.Getenv("TLS_KEY_FILE"); keyFile != "" {
+		config.Server.TLS.KeyFile = keyFile
 	}
 
 	// DATABASE_DSN (optional, default: file:sms.db?cache=shared&mode=rwc)
@@ -213,6 +240,32 @@ func (c *Config) Validate() error {
 
 	if c.Database.DSN == "" {
 		return fmt.Errorf("database DSN is required")
+	}
+
+	if c.Server.TLS.Enabled {
+		if strings.TrimSpace(c.Server.TLS.CertFile) == "" {
+			return fmt.Errorf("TLS cert file is required when TLS is enabled")
+		}
+
+		if strings.TrimSpace(c.Server.TLS.KeyFile) == "" {
+			return fmt.Errorf("TLS key file is required when TLS is enabled")
+		}
+
+		certInfo, err := os.Stat(c.Server.TLS.CertFile)
+		if err != nil {
+			return fmt.Errorf("invalid TLS cert file: %w", err)
+		}
+		if !certInfo.Mode().IsRegular() {
+			return fmt.Errorf("TLS cert file must be a regular file")
+		}
+
+		keyInfo, err := os.Stat(c.Server.TLS.KeyFile)
+		if err != nil {
+			return fmt.Errorf("invalid TLS key file: %w", err)
+		}
+		if !keyInfo.Mode().IsRegular() {
+			return fmt.Errorf("TLS key file must be a regular file")
+		}
 	}
 
 	validLogLevels := map[string]bool{"debug": true, "info": true, "warn": true, "error": true}

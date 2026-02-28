@@ -69,6 +69,17 @@ func TestSetupServer(t *testing.T) {
 	srv, err = SetupServer(cfg)
 	assert.Error(t, err)
 	assert.Nil(t, srv)
+
+	// Test with TLS enabled but invalid cert/key files
+	cfg = config.DefaultConfig()
+	cfg.Server.Port = 8080
+	cfg.Database.DSN = "file:test-tls.db?mode=memory&cache=shared"
+	cfg.Server.TLS.Enabled = true
+	cfg.Server.TLS.CertFile = "invalid-cert.pem"
+	cfg.Server.TLS.KeyFile = "invalid-key.pem"
+	srv, err = SetupServer(cfg)
+	assert.Error(t, err)
+	assert.Nil(t, srv)
 }
 
 func TestHandleHealthCheck(t *testing.T) {
