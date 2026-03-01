@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"sms-sync-server/pkg/logger"
@@ -22,6 +23,29 @@ func SecurityHeadersMiddleware() gin.HandlerFunc {
 		c.Header("X-XSS-Protection", "1; mode=block")
 		c.Next()
 	}
+}
+
+// HTTPSRedirectMiddleware redirects non-HTTPS requests to HTTPS.
+func HTTPSRedirectMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if requestIsHTTPS(c.Request) {
+			c.Next()
+			return
+		}
+
+		targetURL := "https://" + c.Request.Host + c.Request.URL.RequestURI()
+		c.Redirect(http.StatusPermanentRedirect, targetURL)
+		c.Abort()
+	}
+}
+
+func requestIsHTTPS(req *http.Request) bool {
+	if req.TLS != nil {
+		return true
+	}
+
+	forwardedProto := req.Header.Get("X-Forwarded-Proto")
+	return strings.EqualFold(forwardedProto, "https")
 }
 
 // Default CORS configuration

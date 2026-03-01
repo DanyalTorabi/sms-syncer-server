@@ -17,12 +17,15 @@ import (
 // Config holds all configuration settings
 type Config struct {
 	Server struct {
-		Port int    `json:"port"`
-		Host string `json:"host"`
-		TLS  struct {
-			Enabled  bool   `json:"enabled"`
-			CertFile string `json:"cert_file"`
-			KeyFile  string `json:"key_file"`
+		Port              int    `json:"port"`
+		Host              string `json:"host"`
+		Environment       string `json:"environment"`
+		AllowInsecureHTTP bool   `json:"allow_insecure_http"`
+		TLS               struct {
+			Enabled      bool   `json:"enabled"`
+			CertFile     string `json:"cert_file"`
+			KeyFile      string `json:"key_file"`
+			RedirectHTTP bool   `json:"redirect_http"`
 		} `json:"tls"`
 	} `json:"server"`
 	Database struct {
@@ -89,9 +92,12 @@ func DefaultConfig() *Config {
 	config := &Config{}
 	config.Server.Port = 8080
 	config.Server.Host = "localhost"
+	config.Server.Environment = "development"
+	config.Server.AllowInsecureHTTP = false
 	config.Server.TLS.Enabled = false
 	config.Server.TLS.CertFile = ""
 	config.Server.TLS.KeyFile = ""
+	config.Server.TLS.RedirectHTTP = false
 	config.Database.DSN = "file:sms.db?cache=shared&mode=rwc"
 	config.JWT.Secret = "your-secret-key"                                  // This should be changed in production
 	config.JWT.TokenExpiry = 1 * time.Hour                                 // 1-hour expiry as per ticket #69
@@ -127,6 +133,20 @@ func LoadFromEnv() (*Config, error) {
 		config.Server.Host = host
 	}
 
+	// APP_ENV (optional, default: development)
+	if env := os.Getenv("APP_ENV"); env != "" {
+		config.Server.Environment = strings.ToLower(strings.TrimSpace(env))
+	}
+
+	// ALLOW_INSECURE_HTTP (optional, default: false)
+	if allowInsecureHTTP := os.Getenv("ALLOW_INSECURE_HTTP"); allowInsecureHTTP != "" {
+		allow, err := strconv.ParseBool(allowInsecureHTTP)
+		if err != nil {
+			return nil, fmt.Errorf("invalid ALLOW_INSECURE_HTTP: %w", err)
+		}
+		config.Server.AllowInsecureHTTP = allow
+	}
+
 	// TLS_ENABLED (optional, default: false)
 	if tlsEnabled := os.Getenv("TLS_ENABLED"); tlsEnabled != "" {
 		enabled, err := strconv.ParseBool(tlsEnabled)
@@ -144,6 +164,15 @@ func LoadFromEnv() (*Config, error) {
 	// TLS_KEY_FILE (required when TLS_ENABLED=true)
 	if keyFile := os.Getenv("TLS_KEY_FILE"); keyFile != "" {
 		config.Server.TLS.KeyFile = keyFile
+	}
+
+	// TLS_REDIRECT_HTTP (optional, default: false)
+	if tlsRedirectHTTP := os.Getenv("TLS_REDIRECT_HTTP"); tlsRedirectHTTP != "" {
+		redirectHTTP, err := strconv.ParseBool(tlsRedirectHTTP)
+		if err != nil {
+			return nil, fmt.Errorf("invalid TLS_REDIRECT_HTTP: %w", err)
+		}
+		config.Server.TLS.RedirectHTTP = redirectHTTP
 	}
 
 	// DATABASE_DSN (optional, default: file:sms.db?cache=shared&mode=rwc)
@@ -242,6 +271,19 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("database DSN is required")
 	}
 
+	environment := strings.ToLower(strings.TrimSpace(c.Server.Environment))
+	if environment == "" {
+		environment = "development"
+	}
+
+	if !isValidEnvironment(environment) {
+		return fmt.Errorf("invalid APP_ENV: %s", c.Server.Environment)
+	}
+
+	if isTLSEnforcedEnvironment(environment) && !c.Server.TLS.Enabled && !c.Server.AllowInsecureHTTP {
+		return fmt.Errorf("TLS is required for APP_ENV=%s", environment)
+	}
+
 	if c.Server.TLS.Enabled {
 		if strings.TrimSpace(c.Server.TLS.CertFile) == "" {
 			return fmt.Errorf("TLS cert file is required when TLS is enabled")
@@ -274,4 +316,22 @@ func (c *Config) Validate() error {
 	}
 
 	return nil
+}
+
+func isValidEnvironment(env string) bool {
+	switch strings.ToLower(strings.TrimSpace(env)) {
+	case "dev", "development", "test", "testing", "staging", "stage", "prod", "production":
+		return true
+	default:
+		return false
+	}
+}
+
+func isTLSEnforcedEnvironment(env string) bool {
+	switch strings.ToLower(strings.TrimSpace(env)) {
+	case "staging", "stage", "prod", "production":
+		return true
+	default:
+		return false
+	}
 }
