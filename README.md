@@ -62,6 +62,24 @@ See [`.env.example`](.env.example) for comprehensive configuration documentation
 go run cmd/server/main.go
 ```
 
+### Run Local HTTPS (Self-Signed)
+
+```bash
+# Generate local certificate + key and run HTTPS server
+make run-https-local
+
+# Health check over HTTPS (skip verification for self-signed cert)
+curl -k https://localhost:8080/health
+```
+
+To generate certs only:
+
+```bash
+make tls-cert
+```
+
+Generated files are stored in `certs/dev/` and ignored by git.
+
 ## API Endpoints
 
 ### Health Check
