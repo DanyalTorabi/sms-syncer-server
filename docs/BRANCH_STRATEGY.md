@@ -202,7 +202,7 @@ Use the helper script to preview or apply:
 - [x] CI/CD pipeline setup with required checks
 - [x] CODEOWNERS file created
 - [x] Documentation updated
-- [ ] Rulesets applied/enforced in repository settings
+- [x] Rulesets applied/enforced in repository settings
 - [ ] Team training completed
 - [x] Emergency procedures documented
 
