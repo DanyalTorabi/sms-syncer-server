@@ -85,6 +85,11 @@ git push origin hotfix/security-jwt-validation
 
 All PRs to protected branches must pass:
 
+### 🔁 **CI Trigger Verification (PR Workflow)**
+- Open a PR targeting `release/*` and confirm CI starts automatically.
+- Change the base branch of an existing PR and confirm CI re-runs automatically.
+- Verify required status checks remain enforced for `main`, `develop`, and `release/*`.
+
 ### ✅ **Always Required**
 - **Unit Tests**: 85%+ coverage minimum
 - **Linting**: golangci-lint with strict rules
