@@ -79,7 +79,6 @@ make tls-cert
 ```
 
 Generated files are stored in `certs/dev/` and ignored by git.
-
 ## API Endpoints
 
 ### Health Check

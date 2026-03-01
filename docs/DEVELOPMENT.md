@@ -240,6 +240,26 @@ GO_ENV=development
 DEBUG=true
 ```
 
+### Local HTTPS Workflow
+
+Run local development with TLS enabled to mirror staging/production behavior.
+
+```bash
+# Generate local certificate and key (self-signed)
+make tls-cert
+
+# Run server with local HTTPS
+make run-https-local
+
+# Verify health endpoint
+curl -k https://localhost:8080/health
+```
+
+Notes:
+- `-k` is required for self-signed local certs unless you trust the local CA/cert.
+- For proxy-based local setups, set `TLS_REDIRECT_HTTP=true` to validate redirect behavior.
+- Use `APP_ENV=development` locally; keep `APP_ENV=staging|production` for environment policy testing.
+
 ## Database Management
 
 ### Schema Evolution
