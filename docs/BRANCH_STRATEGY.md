@@ -14,25 +14,28 @@
 
 ## 🔒 **Branch Protection Rules**
 
+Branch governance is managed via GitHub Rulesets and versioned JSON templates in `.github/rulesets/`.
+
 ### Main Branch Protection
 - ✅ **No direct pushes allowed**
 - ✅ **Requires PR with 1+ approvals**
 - ✅ **Requires all CI checks to pass:**
-  - Unit tests with 85%+ coverage
-  - Integration tests
-  - Linting (golangci-lint)
-  - Build verification
+  - `Test (1.24.0)`
+  - `Integration Tests`
+  - `Lint`
+  - `Build`
+  - `Security Scan`
 - ✅ **Requires up-to-date branches**
 - ✅ **Requires conversation resolution**
 - ✅ **Dismisses stale reviews on new commits**
 
 ### Release Branch Protection  
 - ✅ **No direct pushes allowed**
-- ✅ **Requires PR with 2+ approvals**
+- ✅ **Requires PR with 1+ approvals**
 - ✅ **Requires all CI checks + security scan:**
   - All main branch checks
-  - Security scan (gosec)
-  - Integration tests
+  - `Security Scan`
+  - `Integration Tests`
 - ✅ **Requires code owner review**
 - ✅ **Requires up-to-date branches**
 
@@ -91,10 +94,11 @@ All PRs to protected branches must pass:
 - Verify required status checks remain enforced for `main`, `develop`, and `release/*`.
 
 ### ✅ **Always Required**
-- **Unit Tests**: 85%+ coverage minimum
-- **Linting**: golangci-lint with strict rules
-- **Build**: Successful compilation
-- **Integration Tests**: Full API workflow tests
+- **Test (1.24.0)**: Unit/race/coverage test suite
+- **Lint**: golangci-lint checks
+- **Build**: Successful server compilation
+- **Integration Tests**: Integration tag test run
+- **Security Scan**: Workflow security scan job
 
 ### ✅ **Release Branch Additional Requirements**
 - **Security Scan**: gosec vulnerability check
@@ -166,21 +170,41 @@ Fixes #[issue_number]
 5. **Post-mortem** within 24 hours
 
 ### Branch Protection Bypass
-- **Only repository admins** can bypass protection
+- **No normal bypass** is allowed for protected branches
+- **Emergency-only override** requires temporary ruleset modification
 - **Must document reason** in security log
-- **Requires post-bypass review** within 24 hours
-- **Emergency use only** for critical production issues
+- **Requires post-override review** within 24 hours
+
+## ⚙️ **Ruleset Management (Versioned)**
+
+Rulesets are defined in:
+- `.github/rulesets/main-and-develop.json`
+- `.github/rulesets/release.json`
+
+Use the helper script to preview or apply:
+
+```bash
+# Preview (no changes)
+./scripts/apply-rulesets.sh
+
+# Apply to current repo
+./scripts/apply-rulesets.sh --apply
+
+# Apply to another repo
+./scripts/apply-rulesets.sh --apply --repo=owner/repo
+```
 
 ---
 
 ## 📝 **Implementation Status**
 
-- [x] GitHub branch protection rules configured
+- [x] Ruleset templates committed in repo (`.github/rulesets/`)
 - [x] CI/CD pipeline setup with required checks
 - [x] CODEOWNERS file created
 - [x] Documentation updated
-- [x] Team training completed
+- [ ] Rulesets applied/enforced in repository settings
+- [ ] Team training completed
 - [x] Emergency procedures documented
 
-**Last Updated**: September 3, 2025
-**Next Review**: October 3, 2025
+**Last Updated**: February 28, 2026
+**Next Review**: March 31, 2026
