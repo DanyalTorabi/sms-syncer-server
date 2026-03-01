@@ -4,6 +4,9 @@ GO_VERSION ?= 1.24.0
 GOLANGCI_LINT_VERSION ?= v1.64.8
 GOIMPORTS_VERSION ?= v0.30.0
 DLV_VERSION ?= v1.24.0
+TLS_CERT_DIR ?= certs/dev
+TLS_CERT_FILE ?= $(TLS_CERT_DIR)/server.crt
+TLS_KEY_FILE ?= $(TLS_CERT_DIR)/server.key
 
 # Default target when running 'make' without arguments
 .PHONY: all
@@ -46,6 +49,14 @@ build:
 .PHONY: run
 run:
 	go run ./cmd/server
+
+.PHONY: tls-cert
+tls-cert:
+	./scripts/generate-dev-cert.sh $(TLS_CERT_DIR)
+
+.PHONY: run-https-local
+run-https-local: tls-cert
+	TLS_ENABLED=true TLS_CERT_FILE=$(TLS_CERT_FILE) TLS_KEY_FILE=$(TLS_KEY_FILE) go run ./cmd/server
 
 # Clean build artifacts
 .PHONY: clean

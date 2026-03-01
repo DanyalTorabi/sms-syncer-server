@@ -42,6 +42,9 @@ cp .env.example .env
 **Optional Environment Variables:**
 - `SERVER_PORT` - Port to listen on (default: 8080)
 - `SERVER_HOST` - Host to bind to (default: localhost)
+- `TLS_ENABLED` - Enable HTTPS/TLS mode (default: false)
+- `TLS_CERT_FILE` - TLS certificate file path (required when TLS_ENABLED=true)
+- `TLS_KEY_FILE` - TLS private key file path (required when TLS_ENABLED=true)
 - `DATABASE_DSN` - Database connection string (default: file:sms.db?cache=shared&mode=rwc)
 - `LOG_LEVEL` - Logging level: debug, info, warn, error (default: info)
 - `JWT_TOKEN_EXPIRY` - JWT token expiry duration (default: 1h)
@@ -55,6 +58,24 @@ See [`.env.example`](.env.example) for comprehensive configuration documentation
 ```bash
 go run cmd/server/main.go
 ```
+
+### Run Local HTTPS (Self-Signed)
+
+```bash
+# Generate local certificate + key and run HTTPS server
+make run-https-local
+
+# Health check over HTTPS (skip verification for self-signed cert)
+curl -k https://localhost:8080/health
+```
+
+To generate certs only:
+
+```bash
+make tls-cert
+```
+
+Generated files are stored in `certs/dev/` and ignored by git.
 
 ## API Endpoints
 
