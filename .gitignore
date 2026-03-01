@@ -16,6 +16,9 @@ coverage.html
 server.log
 *.log
 
+# Local development TLS certificates
+certs/
+
 # IDE files
 .vscode/
 .idea/
