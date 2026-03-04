@@ -515,4 +515,25 @@ LOG_LEVEL=info
 - **JWT:** Stateless with 1-hour expiry, contains permission UUIDs
 - **Email Verification:** Flagged for future implementation (not in current scope)
 
+---
+
+## **TLS/SSL Addendum (March 2026)**
+
+This file primarily tracks the user-management tree (#60-#89 server, #44-#59 Android). TLS/SSL work was tracked separately in the server repo and is now completed.
+
+### **Server TLS EPIC Status**
+
+- ✅ **#114** - EPIC: End-to-End TLS/SSL Support Across All Environments (**CLOSED**)
+- ✅ **#115** - Native TLS server mode + environment configuration (**CLOSED**)
+- ✅ **#116** - Local HTTPS cert generation tooling and make targets (**CLOSED**)
+- ✅ **#117** - HTTPS enforcement policy by environment (**CLOSED**)
+- ✅ **#118** - TLS integration/regression test coverage (**CLOSED**)
+- ✅ **#119** - TLS deployment and cert operations documentation (**CLOSED**)
+
+### **Follow-up Needed for Android Certificate Pinning**
+
+- 🟡 **#130** - Publish Android certificate pin bundle and rotation handoff (**OPEN**)
+    - Why: Android ticket **DanyalTorabi/SmsLogger#56** needs authoritative hostname/SPKI pin data (current + backup) and rotation process.
+    - Output: pin bundle + runbook so Android can implement `CertificatePinner` safely.
+
 Good luck with the implementation! 🚀

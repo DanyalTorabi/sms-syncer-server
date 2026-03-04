@@ -1,0 +1,71 @@
+{
+  "version": "1.0.0",
+  "purpose": "Authoritative certificate pin handoff for Android CertificatePinner configuration.",
+  "owner": "sms-syncer-server maintainers",
+  "lastUpdated": "2026-03-04",
+  "format": {
+    "pin": "sha256/<base64-spki-hash>",
+    "minimumPinsPerHost": 2,
+    "requiredPins": [
+      "current",
+      "backup"
+    ]
+  },
+  "environments": [
+    {
+      "name": "development",
+      "androidPinningRequired": false,
+      "notes": "Local HTTPS is primarily for developer parity. Pinning is optional for debug builds.",
+      "hosts": [
+        {
+          "hostname": "localhost",
+          "edgeTlsTermination": "native",
+          "pins": []
+        }
+      ]
+    },
+    {
+      "name": "staging",
+      "androidPinningRequired": true,
+      "notes": "Replace placeholders with real staging host and pins.",
+      "hosts": [
+        {
+          "hostname": "api-staging.example.com",
+          "edgeTlsTermination": "proxy",
+          "pins": {
+            "current": "sha256/REPLACE_WITH_STAGING_CURRENT_SPKI",
+            "backup": "sha256/REPLACE_WITH_STAGING_BACKUP_SPKI"
+          },
+          "validity": {
+            "notBefore": "REPLACE_DATE",
+            "notAfter": "REPLACE_DATE"
+          }
+        }
+      ]
+    },
+    {
+      "name": "production",
+      "androidPinningRequired": true,
+      "notes": "Replace placeholders with real production host and pins.",
+      "hosts": [
+        {
+          "hostname": "api.example.com",
+          "edgeTlsTermination": "proxy",
+          "pins": {
+            "current": "sha256/REPLACE_WITH_PROD_CURRENT_SPKI",
+            "backup": "sha256/REPLACE_WITH_PROD_BACKUP_SPKI"
+          },
+          "validity": {
+            "notBefore": "REPLACE_DATE",
+            "notAfter": "REPLACE_DATE"
+          }
+        }
+      ]
+    }
+  ],
+  "changeManagement": {
+    "rotationNoticeLeadTime": "14 days",
+    "androidDependency": "DanyalTorabi/SmsLogger#56",
+    "sourceIssue": "#130"
+  }
+}

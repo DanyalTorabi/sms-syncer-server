@@ -258,6 +258,7 @@ curl -k https://localhost:8080/health
 Notes:
 - `-k` is required for self-signed local certs unless you trust the local CA/cert.
 - For proxy-based local setups, set `TLS_REDIRECT_HTTP=true` to validate redirect behavior.
+- For Android pinning handoff artifacts, see [docs/security/android-pin-bundle.json](./security/android-pin-bundle.json) and [docs/security/android-certificate-pinning-runbook.md](./security/android-certificate-pinning-runbook.md).
 - Use `APP_ENV=development` locally; keep `APP_ENV=staging|production` for environment policy testing.
 
 ## Database Management
