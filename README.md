@@ -79,6 +79,14 @@ make tls-cert
 ```
 
 Generated files are stored in `certs/dev/` and ignored by git.
+
+### Android Certificate Pinning Handoff
+
+For Android pinning requirements and operational handoff artifacts, see:
+
+- [Android pin bundle](docs/security/android-pin-bundle.json)
+- [Android certificate pinning runbook](docs/security/android-certificate-pinning-runbook.md)
+
 ## API Endpoints
 
 ### Health Check

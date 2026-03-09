@@ -6,6 +6,7 @@ This guide covers deployment strategies and configurations for the SMS Sync Serv
 
 - [Deployment Overview](#deployment-overview)
 - [Environment Configuration](#environment-configuration)
+- [Android Certificate Pinning Handoff](#android-certificate-pinning-handoff)
 - [Docker Deployment](#docker-deployment)
 - [Production Setup](#production-setup)
 - [Monitoring and Logging](#monitoring-and-logging)
@@ -355,6 +356,19 @@ ADMIN_PASSWORD="$(aws ssm get-parameter --name /prod/admin-password --with-decry
 2. Restart server and verify `GET /health` over HTTPS.
 3. If cert rollback is not possible, temporarily set `ALLOW_INSECURE_HTTP=true` only under incident controls.
 4. Open incident follow-up to restore TLS-compliant state immediately.
+
+## Android Certificate Pinning Handoff
+
+Android pinning consumes the externally presented TLS certificate public key (SPKI). This is critical when TLS is terminated at reverse proxy/CDN instead of native app TLS.
+
+- Pin bundle source of truth: [docs/security/android-pin-bundle.json](./security/android-pin-bundle.json)
+- Rotation and extraction procedure: [docs/security/android-certificate-pinning-runbook.md](./security/android-certificate-pinning-runbook.md)
+
+Minimum handoff expectations:
+
+1. Publish hostnames per environment.
+2. Provide two pins per hostname (`current` + `backup`) in `sha256/<base64>` format.
+3. Update bundle before certificate cutover and notify Android maintainers.
 
 ---
 

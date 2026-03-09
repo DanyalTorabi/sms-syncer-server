@@ -19,6 +19,9 @@ server.log
 # Local development TLS certificates
 certs/
 
+# Local Android pin generation artifacts
+.artifacts/android-pin-inputs/
+
 # IDE files
 .vscode/
 .idea/
