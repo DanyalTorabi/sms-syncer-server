@@ -66,6 +66,10 @@ update-android-pin-bundle:
 generate-android-pin-artifacts:
 	./scripts/generate-android-pin-artifacts.sh
 
+.PHONY: bootstrap-local-android-pin-bundle
+bootstrap-local-android-pin-bundle:
+	./scripts/bootstrap-local-android-pin-bundle.sh
+
 # Clean build artifacts
 .PHONY: clean
 clean:

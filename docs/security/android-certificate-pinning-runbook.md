@@ -19,6 +19,21 @@ This runbook defines how server maintainers provide certificate pin data to Andr
 
 ## Interactive Update Script
 
+For local-only development, use one command to auto-fill the bundle from `certs/dev/server.crt`:
+
+```bash
+make bootstrap-local-android-pin-bundle
+```
+
+This will:
+
+- ensure local cert exists (generates if missing)
+- compute SPKI pin from local cert
+- read `notBefore`/`notAfter` from local cert
+- update `docs/security/android-pin-bundle.json` automatically
+
+For real staging/production environments, use the artifact + interactive flow below.
+
 Step 1: Generate local SPKI/date artifacts from live endpoints:
 
 ```bash
