@@ -17,6 +17,41 @@ This runbook defines how server maintainers provide certificate pin data to Andr
    - `backup`: next key available for rotation
 4. Rotation and rollback steps with owner responsibilities
 
+## Interactive Update Script
+
+Step 1: Generate local SPKI/date artifacts from live endpoints:
+
+```bash
+make generate-android-pin-artifacts
+```
+
+This creates local files under `.artifacts/android-pin-inputs/` (gitignored), including:
+
+- `.artifacts/android-pin-inputs/staging.json`
+- `.artifacts/android-pin-inputs/production.json`
+
+Step 2: Fill/update the pin bundle interactively:
+
+```bash
+make update-android-pin-bundle
+```
+
+The update command auto-loads generated defaults (hostname, current pin, validity dates) from those artifact files.
+
+or run it directly:
+
+```bash
+./scripts/update-android-pin-bundle.sh
+```
+
+The script prompts for:
+
+- owner and rotation notice lead time
+- staging and production hostnames
+- edge TLS termination mode
+- current and backup SPKI pins
+- validity window (`notBefore`, `notAfter`)
+
 ## Extract SPKI Pin from PEM Certificate
 
 ```bash

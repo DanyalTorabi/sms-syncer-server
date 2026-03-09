@@ -58,6 +58,14 @@ tls-cert:
 run-https-local: tls-cert
 	TLS_ENABLED=true TLS_CERT_FILE=$(TLS_CERT_FILE) TLS_KEY_FILE=$(TLS_KEY_FILE) go run ./cmd/server
 
+.PHONY: update-android-pin-bundle
+update-android-pin-bundle:
+	./scripts/update-android-pin-bundle.sh
+
+.PHONY: generate-android-pin-artifacts
+generate-android-pin-artifacts:
+	./scripts/generate-android-pin-artifacts.sh
+
 # Clean build artifacts
 .PHONY: clean
 clean:
